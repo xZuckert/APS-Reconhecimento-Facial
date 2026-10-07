@@ -18,6 +18,7 @@ options = FaceDetectorOptions(
         model_asset_path=str(MODEL_PATH)
     )
 )
+print(MODEL_PATH)
 detector = FaceDetector.create_from_options(options)
 
 while True:
