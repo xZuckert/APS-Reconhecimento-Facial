@@ -64,39 +64,50 @@ display_width, display_height = 320, 240
 
 cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
 
+frame_count = 0
+nome_pessoa = ""
+score = 0
+
 while webcam.isOpened():
     # ler as informacoes da webcam
     verificador, frame = webcam.read() # a funcao do opencv retorna um verificador e outra o frame que foi capturado
+    frame_count += 1
     if not verificador:     #Se o verificador falhar encerra o programa
         print("Falha ao capturar o video")
         break
 
-    # salvar a imagem temporariamente para o DeepFace
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
-        temp_file_path = temp_file.name
-        cv2.imwrite(temp_file_path, frame)
+    if frame_count % 15 == 0:   # limita o DeepFace a ser chamado 2 vezes por segundo
+        # salvar a imagem temporariamente para o DeepFace
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+            temp_file_path = temp_file.name
+            cv2.imwrite(temp_file_path, frame)
 
-    # usar o caminho do arquivo temporario no DeepFace
-    results = DeepFace.find(img_path=temp_file_path, db_path="database", detector_backend="opencv",   # variavel resposta para salvar no bancode dados
+        # usar o caminho do arquivo temporario no DeepFace
+        results = DeepFace.find(img_path=temp_file_path,    # variavel resposta para salvar no bancode dados
+                            db_path="database",
+                            detector_backend="opencv",
                                 enforce_detection=False)
-    os.remove(temp_file_path)
+        os.remove(temp_file_path)
 
-    # verifica se há resultados
-    if results and not results[0].empty:
-        # obtem o caminho da imagem mais proxima encontrada
-        first_match_path = results[0].iloc[0]["identity"]
-        print(f"results: {results}")
+        # verifica se há resultados
+        if results and not results[0].empty:
+            # obtem o caminho da imagem mais proxima encontrada
+            first_match_path = results[0].iloc[0]["identity"]
+            print(f"results: {results}")
 
-        # extrai apenas o nome do arquivo sem o caminho
-        nome_pessoa = first_match_path.split("/")[-1].split("\\")[-1].split(".")[0]
-        score = results[0].iloc[0]["distance"]
+            # extrai apenas o nome do arquivo sem o caminho
+            nome_pessoa = first_match_path.split("/")[-1].split("\\")[-1].split(".")[0]
+            score = results[0].iloc[0]["distance"]
 
+            print("Pessoa encontrada:", nome_pessoa)
+
+        else:
+            nome_pessoa = ""
+            score = 0
+            print("Nenhuma correspondencia encontrada")
+
+    if nome_pessoa:
         put_text(frame, nome_pessoa, score)
-
-        print("Pessoa encontrada:", nome_pessoa)
-
-    else:
-        print("nenhuma correspondecia encontrada")
 
     # redimencionar a imagem para exibição
     frame_resized = cv2.resize(frame, (display_width, display_height))

@@ -23,7 +23,7 @@ wheels/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
-*.egg
+*.egg. Max 50 repositories. Also includes public repositories (read-only).
 MANIFEST
 
 # PyInstaller
@@ -153,6 +153,7 @@ activemq-data/
 .env
 .envrc
 .venv
+.idea
 env/
 venv/
 ENV/
