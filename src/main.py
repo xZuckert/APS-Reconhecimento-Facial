@@ -2,18 +2,66 @@ from deepface import DeepFace
 import cv2
 import os
 import tempfile
+import threading
 
-'''
-# principais bibliotecas
-deepface
-ultralytics
-dlib
-facenet-pytorch
-mediapipe
-'''
+LIMITE_DISTANCIA = 0.55
 
-#os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # desabilitar para utilizar a cpu no lugar da gpu
-#DeepFace.stream(db_path="databaseTeste") # teste utilizando a função do proprio deepface
+def reconhecer_rosto(frame):
+    global nome_pessoa, score, reconhecimento_em_andamento
+
+    temp_file_path = None
+
+    try:
+        # Salvar a imagem temporariamente
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+            temp_file_path = temp_file.name
+            cv2.imwrite(temp_file_path, frame)
+
+        # Fazer o reconhecimento
+        results = DeepFace.find(
+            img_path=temp_file_path,
+            db_path="database",
+            detector_backend="opencv",
+            enforce_detection=False
+        )
+
+        # Verificar os resultados
+        if results and not results[0].empty:
+            first_match = results[0].iloc[0]
+            distancia = first_match["distance"]
+
+            if distancia <= LIMITE_DISTANCIA:
+                first_match_path = first_match["identity"]
+
+                nome_pessoa = first_match_path.split("/")[-1].split("\\")[-1].split(".")[0]
+                score = distancia
+
+                print("Pessoa encontrada:", nome_pessoa)
+                print("Distância:", round(score, 3))
+
+            else:
+                nome_pessoa = ""
+                score = 0
+
+                print("Pessoa não identificada. Distância:", round(distancia, 3))
+
+        else:
+            # Limpa o resultado anterior e retorna nenhuma correspondecia encontrada
+            nome_pessoa = ""
+            score = 0
+
+            print("Nenhuma correspondência encontrada")
+
+    except Exception as erro:
+        nome_pessoa = ""
+        score = 0
+        print("Erro no reconhecimento:", erro)
+
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+
+        reconhecimento_em_andamento = False
 
 def draw_rounded_retangle(img, top_left, bottom_right, color, radius=10, thickness=-1):
     x1, y1 = top_left
@@ -31,7 +79,7 @@ def draw_rounded_retangle(img, top_left, bottom_right, color, radius=10, thickne
 
 def put_text(frame, name, score):
     text_id = f"ID: {name}"
-    text_score = f"Conf: {score:2f}"
+    text_score = f"Distância: {score:.3f}"
     texts = [text_id, text_score]
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1
@@ -54,6 +102,7 @@ def put_text(frame, name, score):
         cv2.putText(frame, text, (x_puttext + 5,y_puttext + y_offset + 25), font, font_scale, (0, 165, 255), thickness)
         y_offset += text_sizes[0][1] + 10
 
+
 # abrir camera (640x480)
 webcam = cv2.VideoCapture(0)
 webcam.set(cv2.CAP_PROP_FRAME_WIDTH, 640) #define a resolução
@@ -62,11 +111,13 @@ webcam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 # definir tamanhos desejados para exibição
 display_width, display_height = 320, 240
 
-cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
+cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("Camera", display_width, display_height)
 
 frame_count = 0
 nome_pessoa = ""
 score = 0
+reconhecimento_em_andamento = False
 
 while webcam.isOpened():
     # ler as informacoes da webcam
@@ -76,35 +127,15 @@ while webcam.isOpened():
         print("Falha ao capturar o video")
         break
 
-    if frame_count % 15 == 0:   # limita o DeepFace a ser chamado 2 vezes por segundo
-        # salvar a imagem temporariamente para o DeepFace
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
-            temp_file_path = temp_file.name
-            cv2.imwrite(temp_file_path, frame)
+    if frame_count % 15 == 0 and not reconhecimento_em_andamento:
+        reconhecimento_em_andamento = True
 
-        # usar o caminho do arquivo temporario no DeepFace
-        results = DeepFace.find(img_path=temp_file_path,    # variavel resposta para salvar no bancode dados
-                            db_path="database",
-                            detector_backend="opencv",
-                                enforce_detection=False)
-        os.remove(temp_file_path)
+        thread = threading.Thread(
+            target=reconhecer_rosto,
+            args=(frame.copy(),)
+        )
 
-        # verifica se há resultados
-        if results and not results[0].empty:
-            # obtem o caminho da imagem mais proxima encontrada
-            first_match_path = results[0].iloc[0]["identity"]
-            print(f"results: {results}")
-
-            # extrai apenas o nome do arquivo sem o caminho
-            nome_pessoa = first_match_path.split("/")[-1].split("\\")[-1].split(".")[0]
-            score = results[0].iloc[0]["distance"]
-
-            print("Pessoa encontrada:", nome_pessoa)
-
-        else:
-            nome_pessoa = ""
-            score = 0
-            print("Nenhuma correspondencia encontrada")
+        thread.start()
 
     if nome_pessoa:
         put_text(frame, nome_pessoa, score)
@@ -113,7 +144,7 @@ while webcam.isOpened():
     frame_resized = cv2.resize(frame, (display_width, display_height))
 
     # exibir a imagem redimencionada
-    cv2.imshow("camera", frame_resized)
+    cv2.imshow("Camera", frame_resized)
 
     if cv2.waitKey(5) == 27:
         break
