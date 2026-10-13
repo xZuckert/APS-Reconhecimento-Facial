@@ -1,6 +1,5 @@
 from banco_dados import conectar
 
-
 def pode_acessar(nivel_usuario, nivel_recurso):
     return nivel_usuario >= nivel_recurso
 
