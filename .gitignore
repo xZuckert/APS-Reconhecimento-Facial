@@ -219,3 +219,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Arquivos de cache do DeepFace
+database/*.pkl

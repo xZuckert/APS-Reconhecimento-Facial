@@ -1,0 +1,5 @@
+deepface
+opencv-python
+psycopg[binary]
+fastapi
+uvicorn
