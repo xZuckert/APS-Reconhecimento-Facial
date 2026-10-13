@@ -2,10 +2,29 @@ from secrets import token_urlsafe
 from threading import Lock
 from time import time
 
-TEMPO_EXPIRACAO = 15 * 60  # 15 minutos de inatividade
+TEMPO_EXPIRACAO = 15 * 60       # 15 minutos de inatividade
+TEMPO_MAXIMO_SESSAO = 8 * 60 * 60  # 8 horas de duração máxima
 
 sessoes_ativas = {}
 sessoes_lock = Lock()
+
+
+def _expirada(sessao, agora):
+    inativa = agora - sessao["ultima_atividade"] > TEMPO_EXPIRACAO
+    duracao_excedida = agora - sessao["criada_em"] > TEMPO_MAXIMO_SESSAO
+
+    return inativa or duracao_excedida
+
+
+def _remover_expiradas(agora):
+    expiradas = [
+        token
+        for token, sessao in sessoes_ativas.items()
+        if _expirada(sessao, agora)
+    ]
+
+    for token in expiradas:
+        del sessoes_ativas[token]
 
 
 def criar_sessao(usuario, nivel_acesso):
@@ -13,6 +32,8 @@ def criar_sessao(usuario, nivel_acesso):
     agora = time()
 
     with sessoes_lock:
+        _remover_expiradas(agora)
+
         sessoes_ativas[token] = {
             "usuario": usuario,
             "nivel_acesso": nivel_acesso,
@@ -32,7 +53,7 @@ def obter_sessao(token):
         if sessao is None:
             return None
 
-        if agora - sessao["ultima_atividade"] > TEMPO_EXPIRACAO:
+        if _expirada(sessao, agora):
             del sessoes_ativas[token]
             return None
 
