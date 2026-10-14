@@ -1,24 +1,26 @@
 import os
 from banco_dados import conectar
 
-
-def cadastrar_usuario(cpf, nome, nivel_acesso, caminho_imagem):
+def cadastrar_usuario(cpf, nome, nivel_acesso, caminho_imagem, imagem=None):
     if not cpf.isdigit() or len(cpf) != 11:
         raise ValueError("O CPF deve conter 11 dígitos.")
 
     if not 1 <= nivel_acesso <= 3:
         raise ValueError("O nível de acesso deve ser 1, 2 ou 3.")
 
+    if imagem is not None and not isinstance(imagem, bytes):
+        raise ValueError("A imagem deve ser fornecida em bytes.")
+
     with conectar() as conexao:
         with conexao.cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO usuarios
-                    (cpf, nome, nivel_acesso, caminho_imagem)
-                VALUES (%s, %s, %s, %s)
+                    (cpf, nome, nivel_acesso, caminho_imagem, imagem)
+                VALUES (%s, %s, %s, %s, %s)
                 RETURNING id
                 """,
-                (cpf, nome, nivel_acesso, caminho_imagem)
+                (cpf, nome, nivel_acesso, caminho_imagem, imagem)
             )
 
             return cursor.fetchone()[0]
@@ -73,4 +75,16 @@ def buscar_usuario_por_imagem(caminho_imagem):
                 os.path.normcase(caminho_procurado).casefold():
             return id_usuario, cpf, nome, nivel
 
-    return None
+def listar_imagens_usuarios():
+    with conectar() as conexao:
+        with conexao.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, cpf, nome, nivel_acesso, imagem
+                FROM usuarios
+                WHERE ativo = TRUE
+                  AND imagem IS NOT NULL
+                """
+            )
+
+            return cursor.fetchall()

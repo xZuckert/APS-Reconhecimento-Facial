@@ -34,29 +34,43 @@ class TestAtualizarInterface(unittest.TestCase):
         self.assertEqual(main.nivel_acesso, 0)
 
 
+
 class TestReconhecerRosto(unittest.TestCase):
     def setUp(self):
         main.atualizar_interface()
         main.reconhecimento_em_andamento = True
 
+    def usuario_teste(self, usuario_id=1, nome="Caique", nivel=2):
+        return (
+            usuario_id,
+            "12345678901",
+            nome,
+            nivel,
+            b"imagem_de_teste"
+        )
 
+    @patch("src.main.atualizar_estado")
     @patch("src.main.cv2.imwrite", return_value=True)
     @patch("src.main.DeepFace.find")
-    @patch("src.main.buscar_usuario_por_imagem")
-    @patch("src.main.atualizar_estado")
+    @patch("src.main.listar_imagens_usuarios")
     def test_usuario_reconhecido(
-        self, atualizar_estado, buscar_usuario, deepface, imwrite
+        self, listar_usuarios, deepface, imwrite, atualizar_estado
     ):
-        resultados = pd.DataFrame([
-            {"distance": 0.30, "identity": "/imagem.jpg"}
-        ])
-        deepface.return_value = [resultados]
-        buscar_usuario.return_value = (1, "12345678901", "Caique", 2)
+        listar_usuarios.return_value = [self.usuario_teste()]
+        deepface.return_value = [
+            pd.DataFrame([
+                {"distance": 0.30, "identity": "/tmp/referencias/1.jpg"}
+            ])
+        ]
 
-        main.reconhecer_rosto(np.zeros((100, 100, 3), dtype=np.uint8))
+        main.reconhecer_rosto(
+            np.zeros((100, 100, 3), dtype=np.uint8)
+        )
 
         self.assertEqual(main.nome_pessoa, "Caique")
         self.assertEqual(main.nivel_acesso, 2)
+        self.assertEqual(main.score, 0.30)
+
         atualizar_estado.assert_called_once_with(
             autenticado=True,
             usuario="Caique",
@@ -64,49 +78,65 @@ class TestReconhecerRosto(unittest.TestCase):
             distancia=0.30
         )
 
-
+    @patch("src.main.atualizar_estado")
     @patch("src.main.cv2.imwrite", return_value=True)
     @patch("src.main.DeepFace.find")
-    @patch("src.main.atualizar_estado")
+    @patch("src.main.listar_imagens_usuarios")
     def test_nenhuma_correspondencia(
-        self, atualizar_estado, deepface, imwrite
+        self, listar_usuarios, deepface, imwrite, atualizar_estado
     ):
+        listar_usuarios.return_value = [self.usuario_teste()]
         deepface.return_value = [pd.DataFrame()]
 
-        main.reconhecer_rosto(np.zeros((100, 100, 3), dtype=np.uint8))
+        main.reconhecer_rosto(
+            np.zeros((100, 100, 3), dtype=np.uint8)
+        )
 
         self.assertEqual(main.nome_pessoa, "")
         atualizar_estado.assert_called_once_with()
 
-
-    @patch("src.main.cv2.imwrite", return_value=False)
     @patch("src.main.atualizar_estado")
-    def test_falha_ao_salvar_frame(self, atualizar_estado, imwrite):
-        main.reconhecer_rosto(np.zeros((100, 100, 3), dtype=np.uint8))
+    @patch("src.main.cv2.imwrite", return_value=False)
+    @patch("src.main.listar_imagens_usuarios")
+    def test_falha_ao_salvar_frame(
+        self, listar_usuarios, imwrite, atualizar_estado
+    ):
+        listar_usuarios.return_value = [self.usuario_teste()]
+
+        main.reconhecer_rosto(
+            np.zeros((100, 100, 3), dtype=np.uint8)
+        )
 
         self.assertEqual(main.nome_pessoa, "")
         atualizar_estado.assert_called_once_with()
         self.assertFalse(main.reconhecimento_em_andamento)
 
+    @patch("src.main.cv2.imwrite", side_effect=RuntimeError("erro"))
+    @patch("src.main.listar_imagens_usuarios")
+    def test_reconhecimento_libera_estado_ao_finalizar(
+        self, listar_usuarios, imwrite
+    ):
+        listar_usuarios.return_value = [self.usuario_teste()]
 
-    def test_reconhecimento_libera_estado_ao_finalizar(self):
-        with patch("src.main.cv2.imwrite", side_effect=RuntimeError("erro")):
-            main.reconhecer_rosto(np.zeros((100, 100, 3), dtype=np.uint8))
+        main.reconhecer_rosto(
+            np.zeros((100, 100, 3), dtype=np.uint8)
+        )
 
         self.assertFalse(main.reconhecimento_em_andamento)
 
-
+    @patch("src.main.atualizar_estado")
     @patch("src.main.cv2.imwrite", return_value=True)
     @patch("src.main.DeepFace.find")
-    @patch("src.main.buscar_usuario_por_imagem", return_value=None)
-    @patch("src.main.atualizar_estado")
+    @patch("src.main.listar_imagens_usuarios")
     def test_usuario_reconhecido_mas_nao_cadastrado(
-            self, atualizar_estado, buscar_usuario, deepface, imwrite
+        self, listar_usuarios, deepface, imwrite, atualizar_estado
     ):
-        resultados = pd.DataFrame([
-            {"distance": 0.30, "identity": "/imagem.jpg"}
-        ])
-        deepface.return_value = [resultados]
+        listar_usuarios.return_value = [self.usuario_teste(usuario_id=1)]
+        deepface.return_value = [
+            pd.DataFrame([
+                {"distance": 0.30, "identity": "/tmp/referencias/99.jpg"}
+            ])
+        ]
 
         main.reconhecer_rosto(
             np.zeros((100, 100, 3), dtype=np.uint8)
@@ -115,21 +145,21 @@ class TestReconhecerRosto(unittest.TestCase):
         self.assertEqual(main.nome_pessoa, "")
         self.assertEqual(main.score, 0)
         self.assertEqual(main.nivel_acesso, 0)
-        buscar_usuario.assert_called_once_with("/imagem.jpg")
         atualizar_estado.assert_called_once_with()
 
-
+    @patch("src.main.atualizar_estado")
     @patch("src.main.cv2.imwrite", return_value=True)
     @patch("src.main.DeepFace.find")
-    @patch("src.main.buscar_usuario_por_imagem")
-    @patch("src.main.atualizar_estado")
+    @patch("src.main.listar_imagens_usuarios")
     def test_distancia_acima_do_limite(
-            self, atualizar_estado, buscar_usuario, deepface, imwrite
+        self, listar_usuarios, deepface, imwrite, atualizar_estado
     ):
-        resultados = pd.DataFrame([
-            {"distance": 0.80, "identity": "/imagem.jpg"}
-        ])
-        deepface.return_value = [resultados]
+        listar_usuarios.return_value = [self.usuario_teste()]
+        deepface.return_value = [
+            pd.DataFrame([
+                {"distance": 0.80, "identity": "/tmp/referencias/1.jpg"}
+            ])
+        ]
 
         main.atualizar_interface("Pessoa anterior", 0.20, 1)
 
@@ -140,71 +170,19 @@ class TestReconhecerRosto(unittest.TestCase):
         self.assertEqual(main.nome_pessoa, "")
         self.assertEqual(main.score, 0)
         self.assertEqual(main.nivel_acesso, 0)
-        buscar_usuario.assert_not_called()
         atualizar_estado.assert_called_once_with()
 
-
-    @patch("src.main.cv2.imwrite", return_value=True)
-    @patch("src.main.DeepFace.find")
-    @patch("src.main.buscar_usuario_por_imagem", return_value=None)
     @patch("src.main.atualizar_estado")
-    def test_usuario_reconhecido_mas_nao_cadastrado(
-        self, atualizar_estado, buscar_usuario, deepface, imwrite
+    @patch("src.main.listar_imagens_usuarios", return_value=[])
+    def test_nenhum_usuario_com_imagem(
+        self, listar_usuarios, atualizar_estado
     ):
-        resultados = pd.DataFrame([
-            {"distance": 0.30, "identity": "/imagem.jpg"}
-        ])
-        deepface.return_value = [resultados]
-
         main.reconhecer_rosto(
             np.zeros((100, 100, 3), dtype=np.uint8)
         )
 
         self.assertEqual(main.nome_pessoa, "")
-        self.assertEqual(main.score, 0)
-        self.assertEqual(main.nivel_acesso, 0)
-        buscar_usuario.assert_called_once_with("/imagem.jpg")
         atualizar_estado.assert_called_once_with()
-
-
-    @patch("src.main.cv2.imwrite", return_value=True)
-    @patch("src.main.DeepFace.find")
-    @patch("src.main.buscar_usuario_por_imagem")
-    @patch("src.main.atualizar_estado")
-    def test_distancia_acima_do_limite(
-        self, atualizar_estado, buscar_usuario, deepface, imwrite
-    ):
-        resultados = pd.DataFrame([
-            {"distance": 0.80, "identity": "/imagem.jpg"}
-        ])
-        deepface.return_value = [resultados]
-
-        main.atualizar_interface("Pessoa anterior", 0.20, 1)
-
-        main.reconhecer_rosto(
-            np.zeros((100, 100, 3), dtype=np.uint8)
-        )
-
-        self.assertEqual(main.nome_pessoa, "")
-        self.assertEqual(main.score, 0)
-        self.assertEqual(main.nivel_acesso, 0)
-        buscar_usuario.assert_not_called()
-        atualizar_estado.assert_called_once_with()
-
-
-    @patch("src.main.os.remove", side_effect=OSError("Erro simulado"))
-    @patch("src.main.os.path.exists", return_value=True)
-    @patch("src.main.cv2.imwrite", return_value=False)
-    @patch("src.main.atualizar_estado")
-    def test_falha_ao_remover_arquivo_temporario(
-        self, atualizar_estado, imwrite, arquivo_existe, remover
-    ):
-        main.reconhecer_rosto(
-            np.zeros((100, 100, 3), dtype=np.uint8)
-        )
-
-        remover.assert_called_once()
-        atualizar_estado.assert_called()
         self.assertFalse(main.reconhecimento_em_andamento)
 
 

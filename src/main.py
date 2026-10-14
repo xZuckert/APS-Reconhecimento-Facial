@@ -7,7 +7,7 @@ import tempfile
 import threading
 import api
 import uvicorn
-from usuarios import buscar_usuario_por_imagem
+from usuarios import listar_imagens_usuarios
 from estado import atualizar_estado
 
 # Variáveis globais
@@ -33,98 +33,118 @@ def atualizar_interface(nome="", distancia=0, nivel=0):
         nivel_acesso = nivel
 
 
+
+
 def reconhecer_rosto(frame):
     global reconhecimento_em_andamento
 
-    temp_file_path = None
-
     try:
-        # Salvar a imagem temporariamente
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=".jpg"
-        ) as temp_file:
-            temp_file_path = temp_file.name
+        # Buscar no banco os usuários ativos que possuem imagem cadastrada.
+        usuarios = listar_imagens_usuarios()
 
-        if not cv2.imwrite(temp_file_path, frame):
-            raise RuntimeError("Não foi possível salvar o frame temporário.")
+        # Associar cada ID aos dados do usuário para localizar rapidamente quem corresponde à imagem reconhecida.
+        usuarios_por_id = {
+            str(usuario_id): (usuario_id, cpf, nome, nivel)
+            for usuario_id, cpf, nome, nivel, imagem in usuarios
+        }
 
-        # Fazer o reconhecimento
-        results = DeepFace.find(
-            img_path=temp_file_path,
-            db_path=str(DATABASE_DIR),
-            detector_backend="opencv",
-            enforce_detection=True # Faz o processamento apenas quando detecta um rosto
-        )
-
-        # Verificar os resultados
-        if results and not results[0].empty:
-            first_match = results[0].iloc[0]
-            distancia = float(first_match["distance"])
-
-            if distancia <= LIMITE_DISTANCIA:
-                first_match_path = first_match["identity"]
-                usuario = buscar_usuario_por_imagem(first_match_path)
-
-                if usuario:
-                    id_usuario, cpf, nome, nivel = usuario
-
-                    # Atualizar as informações da pessoa reconhecida
-                    atualizar_interface(nome, distancia, nivel)
-
-                    atualizar_estado(
-                        autenticado=True,
-                        usuario=nome,
-                        nivel_acesso=nivel,
-                        distancia=distancia
-                    )
-
-                    print("Pessoa encontrada:", nome)
-                    print("Distância:", round(distancia, 3))
-                    print("Nível de acesso:", nivel)
-
-                else:
-                    # Limpar as informações quando o usuário não estiver cadastrado
-                    atualizar_interface()
-                    atualizar_estado()
-
-                    print(
-                        "Pessoa reconhecida, mas não cadastrada no banco."
-                    )
-
-            else:
-                # Limpar as informações quando a distância ultrapassar o limite
-                atualizar_interface()
-                atualizar_estado()
-
-                print(
-                    "Pessoa não identificada. Distância:",
-                    round(distancia, 3)
-                )
-
-        else:
-            # Limpar as informações quando não houver correspondência
+        # Encerrar a busca quando não houver imagens de referência.
+        if not usuarios_por_id:
             atualizar_interface()
             atualizar_estado()
+            print("Nenhum usuário possui imagem cadastrada no banco.")
+            return
 
-            print("Nenhuma correspondência encontrada")
+        # Criar uma pasta temporária para preparar as imagens do DeepFace. Os arquivos serão removidos automaticamente ao sair deste bloco.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pasta_temp = Path(temp_dir)
+            pasta_referencias = pasta_temp / "referencias"
+            pasta_referencias.mkdir()
+
+            # Gravar temporariamente as imagens recuperadas do PostgreSQL. O nome do arquivo corresponde ao ID do usuário.
+            for usuario_id, cpf, nome, nivel, imagem in usuarios:
+                if not imagem:
+                    continue
+
+                caminho = pasta_referencias / f"{usuario_id}.jpg"
+                caminho.write_bytes(imagem)
+
+            # Salvar temporariamente o frame capturado pela câmera.
+            caminho_frame = pasta_temp / "captura.jpg"
+
+            if not cv2.imwrite(str(caminho_frame), frame):
+                raise RuntimeError(
+                    "Não foi possível salvar o frame temporário."
+                )
+
+            # Comparar o rosto capturado com as imagens de referência.
+            results = DeepFace.find(
+                img_path=str(caminho_frame),
+                db_path=str(pasta_referencias),
+                detector_backend="opencv",
+                enforce_detection=True
+            )
+
+            # Verificar se o DeepFace encontrou alguma correspondência.
+            if results and not results[0].empty:
+                first_match = results[0].iloc[0]
+                distancia = float(first_match["distance"])
+
+                # Aceitar a correspondência somente se estiver dentro do limite de distância definido para o projeto.
+                if distancia <= LIMITE_DISTANCIA:
+                    caminho_identidade = Path(
+                        str(first_match["identity"])
+                    )
+
+                    # Recuperar o ID pelo nome do arquivo de referência.
+                    id_encontrado = caminho_identidade.stem
+                    usuario = usuarios_por_id.get(id_encontrado)
+
+                    if usuario:
+                        id_usuario, cpf, nome, nivel = usuario
+
+                        # Atualizar a interface e o estado de autenticação.
+                        atualizar_interface(nome, distancia, nivel)
+                        atualizar_estado(
+                            autenticado=True,
+                            usuario=nome,
+                            nivel_acesso=nivel,
+                            distancia=distancia
+                        )
+
+                        print("Pessoa encontrada:", nome)
+                        print("Distância:", round(distancia, 3))
+                        print("Nível de acesso:", nivel)
+                    else:
+                        # Limpar o estado caso a referência não corresponda a um usuário retornado pelo banco.
+                        atualizar_interface()
+                        atualizar_estado()
+                        print("Correspondência sem usuário cadastrado.")
+                else:
+                    # Limpar os dados quando a distância exceder o limite.
+                    atualizar_interface()
+                    atualizar_estado()
+                    print(
+                        "Pessoa não identificada. Distância:",
+                        round(distancia, 3)
+                    )
+            else:
+                # Limpar os dados quando nenhuma correspondência for obtida.
+                atualizar_interface()
+                atualizar_estado()
+                print("Nenhuma correspondência encontrada")
 
     except Exception as erro:
-        # Limpar as informações quando ocorrer um erro no reconhecimento
+        # Garantir que uma falha não mantenha dados de autenticação antigos.
         atualizar_interface()
         atualizar_estado()
 
+        # Não exibir como erro inesperado a ausência de um rosto no frame.
         if "Face could not be detected" not in str(erro):
             print(f"Erro no reconhecimento: {erro}")
 
     finally:
-        # Remover a imagem temporária
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.remove(temp_file_path)
-            except OSError as erro:
-                print("Erro ao remover arquivo temporário:", erro)
-
-        # Liberar o reconhecimento para a próxima execução
+        # Liberar o reconhecimento para permitir a próxima execução.
         with reconhecimento_lock:
             reconhecimento_em_andamento = False
 
