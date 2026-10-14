@@ -222,3 +222,9 @@ __marimo__/
 
 # Arquivos de cache do DeepFace
 database/*.pkl
+
+# Imagens utilizadas nos testes
+database/*
+
+# Arquivos temporários
+*.tmp

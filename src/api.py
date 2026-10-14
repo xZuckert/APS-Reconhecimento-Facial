@@ -85,15 +85,19 @@ def obter_dados_ambientais(
     )
 
     if not resultado["sucesso"]:
-        status = (
-            403
-            if resultado["mensagem"] == "Acesso negado."
-            else 400
-        )
+        mensagem = resultado["mensagem"]
+
+        # Definir o código HTTP conforme o tipo de erro
+        if mensagem == "Acesso negado.":
+            status = 403
+        elif mensagem == "Não foi possível consultar os dados no momento.":
+            status = 503
+        else:
+            status = 400
 
         raise HTTPException(
             status_code=status,
-            detail=resultado["mensagem"]
+            detail=mensagem
         )
 
     return resultado
