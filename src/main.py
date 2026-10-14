@@ -237,84 +237,91 @@ threading.Thread(
 ).start()
 
 
-# Abrir câmera
-webcam = cv2.VideoCapture(0)
+def executar_loop_camera():
+    global reconhecimento_em_andamento
 
-if not webcam.isOpened():
-    print("Não foi possível abrir a câmera.")
-    raise SystemExit(1)
+    # Abrir câmera
+    webcam = cv2.VideoCapture(0)
 
-# Definir a resolução da câmera
-webcam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-webcam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    if not webcam.isOpened():
+        print("Não foi possível abrir a câmera.")
+        raise SystemExit(1)
 
-# Definir o tamanho da janela
-display_width, display_height = 320, 240
+    # Definir a resolução da câmera
+    webcam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    webcam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-frame_count = 0
+    # Definir o tamanho da janela
+    display_width, display_height = 320, 240
 
-try:
-    # Criar e dimensionar a janela da câmera
-    cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("Camera", display_width, display_height)
+    frame_count = 0
 
-    while webcam.isOpened():
-        # Capturar um frame da câmera
-        verificador, frame = webcam.read()
+    try:
+        # Criar e dimensionar a janela da câmera
+        cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Camera", display_width, display_height)
 
-        if not verificador:
-            print("Falha ao capturar o vídeo")
-            break
+        while webcam.isOpened():
+            # Capturar um frame da câmera
+            verificador, frame = webcam.read()
 
-        frame_count += 1
+            if not verificador:
+                print("Falha ao capturar o vídeo")
+                break
 
-        # Iniciar reconhecimento a cada 15 frames
-        if frame_count % 15 == 0:
-            iniciar_reconhecimento = False
+            frame_count += 1
 
-            with reconhecimento_lock:
-                if not reconhecimento_em_andamento:
-                    reconhecimento_em_andamento = True
-                    iniciar_reconhecimento = True
+            # Iniciar reconhecimento a cada 15 frames
+            if frame_count % 15 == 0:
+                iniciar_reconhecimento = False
 
-            if iniciar_reconhecimento:
-                try:
-                    # Executar o reconhecimento em uma thread separada
-                    thread = threading.Thread(
-                        target=reconhecer_rosto,
-                        args=(frame.copy(),)
-                    )
-                    thread.start()
+                with reconhecimento_lock:
+                    if not reconhecimento_em_andamento:
+                        reconhecimento_em_andamento = True
+                        iniciar_reconhecimento = True
 
-                except Exception as erro:
-                    # Liberar o reconhecimento caso a thread não inicie
-                    with reconhecimento_lock:
-                        reconhecimento_em_andamento = False
+                if iniciar_reconhecimento:
+                    try:
+                        # Executar o reconhecimento em uma thread separada
+                        thread = threading.Thread(
+                            target=reconhecer_rosto,
+                            args=(frame.copy(),)
+                        )
+                        thread.start()
 
-                    print("Erro ao iniciar reconhecimento:", erro)
+                    except Exception as erro:
+                        # Liberar o reconhecimento caso a thread não inicie
+                        with reconhecimento_lock:
+                            reconhecimento_em_andamento = False
 
-        # Obter as informações atuais da pessoa reconhecida
-        with estado_interface_lock:
-            nome_atual = nome_pessoa
-            score_atual = score
-            nivel_atual = nivel_acesso
+                        print("Erro ao iniciar reconhecimento:", erro)
 
-        # Exibir as informações da pessoa identificada
-        if nome_atual:
-            put_text(frame, nome_atual, score_atual, nivel_atual)
+            # Obter as informações atuais da pessoa reconhecida
+            with estado_interface_lock:
+                nome_atual = nome_pessoa
+                score_atual = score
+                nivel_atual = nivel_acesso
 
-        # Redimensionar e exibir o vídeo
-        frame_resized = cv2.resize(
-            frame, (display_width, display_height)
-        )
+            # Exibir as informações da pessoa identificada
+            if nome_atual:
+                put_text(frame, nome_atual, score_atual, nivel_atual)
 
-        cv2.imshow("Camera", frame_resized)
+            # Redimensionar e exibir o vídeo
+            frame_resized = cv2.resize(
+                frame, (display_width, display_height)
+            )
 
-        # Encerrar a execução ao pressionar ESC
-        if cv2.waitKey(5) == 27:
-            break
+            cv2.imshow("Camera", frame_resized)
 
-finally:
-    # Encerrar a câmera e fechar as janelas
-    webcam.release()
-    cv2.destroyAllWindows()
+            # Encerrar a execução ao pressionar ESC
+            if cv2.waitKey(5) == 27:
+                break
+
+    finally:
+        # Encerrar a câmera e fechar as janelas
+        webcam.release()
+        cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    executar_loop_camera()

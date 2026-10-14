@@ -48,5 +48,25 @@ class TestCadastroUsuario(unittest.TestCase):
         cursor.execute.assert_called_once()
         mock_conectar.assert_called_once()
 
+    @patch("src.usuarios.conectar")
+    def test_cpf_duplicado(self, mock_conectar):
+        import psycopg
+
+        conexao = mock_conectar.return_value.__enter__.return_value
+        cursor = conexao.cursor.return_value.__enter__.return_value
+        cursor.execute.side_effect = psycopg.errors.UniqueViolation(
+            "CPF duplicado"
+        )
+
+        with self.assertRaises(psycopg.errors.UniqueViolation):
+            cadastrar_usuario(
+                cpf="12345678901",
+                nome="Usuario Teste",
+                nivel_acesso=1,
+                caminho_imagem="database/usuario_teste.jpg"
+            )
+
+        cursor.execute.assert_called_once()
+
 if __name__ == "__main__":
     unittest.main()
