@@ -3,17 +3,16 @@ import psycopg
 
 from banco_dados import conectar
 
-# Configurar o registro de erros
 logger = logging.getLogger(__name__)
 
 
 def pode_acessar(nivel_usuario, nivel_recurso):
-    # Verificar se o nível do usuário permite o acesso
+    # Usuários com nível igual ou superior podem acessar o recurso
     return nivel_usuario >= nivel_recurso
 
 
 def consultar_dados(nome, nivel_usuario, nivel_recurso):
-    # Validar o nível do recurso solicitado
+    # Aceita somente os níveis de recurso definidos pelo sistema
     if nivel_recurso not in (1, 2, 3):
         return {
             "sucesso": False,
@@ -21,7 +20,6 @@ def consultar_dados(nome, nivel_usuario, nivel_recurso):
             "dados": []
         }
 
-    # Verificar a permissão de acesso
     if not pode_acessar(nivel_usuario, nivel_recurso):
         return {
             "sucesso": False,
@@ -30,7 +28,7 @@ def consultar_dados(nome, nivel_usuario, nivel_recurso):
         }
 
     try:
-        # Consultar os dados no banco de dados
+        # Busca no banco os dados correspondentes ao nível solicitado
         with conectar() as conexao:
             with conexao.cursor() as cursor:
                 cursor.execute("""
@@ -43,7 +41,7 @@ def consultar_dados(nome, nivel_usuario, nivel_recurso):
                 dados = [linha[0] for linha in cursor.fetchall()]
 
     except psycopg.Error:
-        # Registrar o erro sem expor detalhes ao cliente
+        # Registra os detalhes do erro sem expô-los ao cliente
         logger.exception(
             "Falha ao consultar dados ambientais no PostgreSQL."
         )
@@ -54,7 +52,6 @@ def consultar_dados(nome, nivel_usuario, nivel_recurso):
             "dados": []
         }
 
-    # Retornar os dados quando a consulta for concluída
     return {
         "sucesso": True,
         "mensagem": "Acesso autorizado.",

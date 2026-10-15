@@ -1,16 +1,14 @@
-from deepface import DeepFace
 from threading import Lock
 from pathlib import Path
 import cv2
-import os
-import tempfile
 import threading
 import api
 import uvicorn
-from usuarios import listar_imagens_usuarios
+from camera_compartilhada import atualizar_frame
+from reconhecimento import reconhecer_imagem, reconhecimento_lock
 from estado import atualizar_estado
 
-# Variáveis globais
+# Dados exibidos na interface e controle das threads
 estado_interface_lock = Lock()
 reconhecimento_lock = Lock()
 LIMITE_DISTANCIA = 0.55
@@ -26,125 +24,52 @@ DATABASE_DIR = BASE_DIR / "database"
 def atualizar_interface(nome="", distancia=0, nivel=0):
     global nome_pessoa, score, nivel_acesso
 
-    # Atualizar as informações exibidas na câmera
+    # Impede que duas threads alterem os dados ao mesmo tempo
     with estado_interface_lock:
         nome_pessoa = nome
         score = distancia
         nivel_acesso = nivel
 
 
-
-
 def reconhecer_rosto(frame):
     global reconhecimento_em_andamento
 
     try:
-        # Buscar no banco os usuários ativos que possuem imagem cadastrada.
-        usuarios = listar_imagens_usuarios()
+        resultado = reconhecer_imagem(frame)
 
-        # Associar cada ID aos dados do usuário para localizar rapidamente quem corresponde à imagem reconhecida.
-        usuarios_por_id = {
-            str(usuario_id): (usuario_id, cpf, nome, nivel)
-            for usuario_id, cpf, nome, nivel, imagem in usuarios
-        }
-
-        # Encerrar a busca quando não houver imagens de referência.
-        if not usuarios_por_id:
-            atualizar_interface()
-            atualizar_estado()
-            print("Nenhum usuário possui imagem cadastrada no banco.")
-            return
-
-        # Criar uma pasta temporária para preparar as imagens do DeepFace. Os arquivos serão removidos automaticamente ao sair deste bloco.
-        with tempfile.TemporaryDirectory() as temp_dir:
-            pasta_temp = Path(temp_dir)
-            pasta_referencias = pasta_temp / "referencias"
-            pasta_referencias.mkdir()
-
-            # Gravar temporariamente as imagens recuperadas do PostgreSQL. O nome do arquivo corresponde ao ID do usuário.
-            for usuario_id, cpf, nome, nivel, imagem in usuarios:
-                if not imagem:
-                    continue
-
-                caminho = pasta_referencias / f"{usuario_id}.jpg"
-                caminho.write_bytes(imagem)
-
-            # Salvar temporariamente o frame capturado pela câmera.
-            caminho_frame = pasta_temp / "captura.jpg"
-
-            if not cv2.imwrite(str(caminho_frame), frame):
-                raise RuntimeError(
-                    "Não foi possível salvar o frame temporário."
-                )
-
-            # Comparar o rosto capturado com as imagens de referência.
-            results = DeepFace.find(
-                img_path=str(caminho_frame),
-                db_path=str(pasta_referencias),
-                detector_backend="opencv",
-                enforce_detection=True
+        if resultado["autenticado"]:
+            # Atualiza as informações mostradas na câmera
+            atualizar_interface(
+                resultado["usuario"],
+                resultado["distancia"],
+                resultado["nivel_acesso"]
             )
 
-            # Verificar se o DeepFace encontrou alguma correspondência.
-            if results and not results[0].empty:
-                first_match = results[0].iloc[0]
-                distancia = float(first_match["distance"])
+            # Compartilha o resultado com os demais módulos
+            atualizar_estado(
+                autenticado=True,
+                id_usuario=resultado["id_usuario"],
+                usuario=resultado["usuario"],
+                nivel_acesso=resultado["nivel_acesso"],
+                distancia=resultado["distancia"]
+            )
 
-                # Aceitar a correspondência somente se estiver dentro do limite de distância definido para o projeto.
-                if distancia <= LIMITE_DISTANCIA:
-                    caminho_identidade = Path(
-                        str(first_match["identity"])
-                    )
+            print("Pessoa encontrada:", resultado["usuario"])
+            print("Distância:", round(resultado["distancia"], 3))
+            print("Nível de acesso:", resultado["nivel_acesso"])
 
-                    # Recuperar o ID pelo nome do arquivo de referência.
-                    id_encontrado = caminho_identidade.stem
-                    usuario = usuarios_por_id.get(id_encontrado)
-
-                    if usuario:
-                        id_usuario, cpf, nome, nivel = usuario
-
-                        # Atualizar a interface e o estado de autenticação.
-                        atualizar_interface(nome, distancia, nivel)
-                        atualizar_estado(
-                            autenticado=True,
-                            usuario=nome,
-                            nivel_acesso=nivel,
-                            distancia=distancia
-                        )
-
-                        print("Pessoa encontrada:", nome)
-                        print("Distância:", round(distancia, 3))
-                        print("Nível de acesso:", nivel)
-                    else:
-                        # Limpar o estado caso a referência não corresponda a um usuário retornado pelo banco.
-                        atualizar_interface()
-                        atualizar_estado()
-                        print("Correspondência sem usuário cadastrado.")
-                else:
-                    # Limpar os dados quando a distância exceder o limite.
-                    atualizar_interface()
-                    atualizar_estado()
-                    print(
-                        "Pessoa não identificada. Distância:",
-                        round(distancia, 3)
-                    )
-            else:
-                # Limpar os dados quando nenhuma correspondência for obtida.
-                atualizar_interface()
-                atualizar_estado()
-                print("Nenhuma correspondência encontrada")
+        else:
+            atualizar_interface()
+            atualizar_estado()
+            print(resultado["mensagem"])
 
     except Exception as erro:
-        # Garantir que uma falha não mantenha dados de autenticação antigos.
         atualizar_interface()
         atualizar_estado()
-
-        # Não exibir como erro inesperado a ausência de um rosto no frame.
-        if "Face could not be detected" not in str(erro):
-            print(f"Erro no reconhecimento: {erro}")
+        print(f"Erro no reconhecimento: {erro}")
 
     finally:
-        # Liberar o reconhecimento para permitir a próxima execução.
+        # Libera uma nova tentativa de reconhecimento
         with reconhecimento_lock:
             reconhecimento_em_andamento = False
 
@@ -153,11 +78,11 @@ def draw_rounded_retangle(
     img, top_left, bottom_right, color,
     radius=10, thickness=-1
 ):
-    # Definir as coordenadas do retângulo
+    # Coordenadas dos cantos do retângulo
     x1, y1 = top_left
     x2, y2 = bottom_right
 
-    # Desenhar as partes retas do retângulo
+    # Desenha as partes retas
     cv2.rectangle(
         img, (x1 + radius, y1),
         (x2 - radius, y2), color, thickness
@@ -167,7 +92,7 @@ def draw_rounded_retangle(
         (x2, y2 - radius), color, thickness
     )
 
-    # Desenhar os cantos arredondados
+    # Completa os cantos arredondados com elipses
     cv2.ellipse(
         img, (x1 + radius, y1 + radius),
         (radius, radius), 180, 0, 90, color, thickness
@@ -187,7 +112,7 @@ def draw_rounded_retangle(
 
 
 def put_text(frame, name, score, nivel_acesso):
-    # Definir as informações que serão exibidas
+    # Informações apresentadas no painel da câmera
     texts = [
         f"ID: {name}",
         f"Distância: {score:.3f}",
@@ -200,7 +125,7 @@ def put_text(frame, name, score, nivel_acesso):
     bg_color = (0, 165, 0)
     text_color = (0, 165, 255)
 
-    # Calcular o tamanho de todas as linhas
+    # Calcula o espaço necessário para exibir os textos
     text_sizes = [
         cv2.getTextSize(text, font, font_scale, thickness)[0]
         for text in texts
@@ -210,11 +135,10 @@ def put_text(frame, name, score, nivel_acesso):
     text_height = sum(height for _, height in text_sizes)
     text_height += (len(texts) - 1) * 10 + 20
 
-    # Posicionar o painel na parte inferior
+    # Posiciona o painel na parte inferior da imagem
     x_puttext = 20
     y_puttext = frame.shape[0] - text_height - 30
 
-    # Desenhar o fundo do painel
     draw_rounded_retangle(
         frame,
         (x_puttext, y_puttext - 10),
@@ -223,7 +147,7 @@ def put_text(frame, name, score, nivel_acesso):
         radius=10
     )
 
-    # Exibir cada linha de texto
+    # Desenha cada linha no painel
     y_offset = 0
 
     for text, (_, height) in zip(texts, text_sizes):
@@ -241,7 +165,7 @@ def put_text(frame, name, score, nivel_acesso):
 
 
 def iniciar_api():
-    # Iniciar o servidor da API
+    # Inicia o servidor HTTP da aplicação
     uvicorn.run(
         api.app,
         host="127.0.0.1",
@@ -250,7 +174,7 @@ def iniciar_api():
     )
 
 
-# Executar a API em uma thread separada
+# Mantém a API funcionando em paralelo com a câmera
 threading.Thread(
     target=iniciar_api,
     daemon=True
@@ -260,38 +184,35 @@ threading.Thread(
 def executar_loop_camera():
     global reconhecimento_em_andamento
 
-    # Abrir câmera
     webcam = cv2.VideoCapture(0)
 
     if not webcam.isOpened():
         print("Não foi possível abrir a câmera.")
         raise SystemExit(1)
 
-    # Definir a resolução da câmera
     webcam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     webcam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    # Definir o tamanho da janela
+    # Resolução usada para exibir a janela
     display_width, display_height = 320, 240
-
     frame_count = 0
 
     try:
-        # Criar e dimensionar a janela da câmera
         cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
         cv2.resizeWindow("Camera", display_width, display_height)
 
         while webcam.isOpened():
-            # Capturar um frame da câmera
             verificador, frame = webcam.read()
 
             if not verificador:
                 print("Falha ao capturar o vídeo")
                 break
 
+            # Disponibiliza o frame para a API
+            atualizar_frame(frame)
             frame_count += 1
 
-            # Iniciar reconhecimento a cada 15 frames
+            # Evita executar o reconhecimento em todos os frames
             if frame_count % 15 == 0:
                 iniciar_reconhecimento = False
 
@@ -302,7 +223,7 @@ def executar_loop_camera():
 
                 if iniciar_reconhecimento:
                     try:
-                        # Executar o reconhecimento em uma thread separada
+                        # O reconhecimento ocorre sem bloquear a câmera
                         thread = threading.Thread(
                             target=reconhecer_rosto,
                             args=(frame.copy(),)
@@ -310,35 +231,31 @@ def executar_loop_camera():
                         thread.start()
 
                     except Exception as erro:
-                        # Liberar o reconhecimento caso a thread não inicie
                         with reconhecimento_lock:
                             reconhecimento_em_andamento = False
 
                         print("Erro ao iniciar reconhecimento:", erro)
 
-            # Obter as informações atuais da pessoa reconhecida
+            # Copia os dados compartilhados para exibição
             with estado_interface_lock:
                 nome_atual = nome_pessoa
                 score_atual = score
                 nivel_atual = nivel_acesso
 
-            # Exibir as informações da pessoa identificada
             if nome_atual:
                 put_text(frame, nome_atual, score_atual, nivel_atual)
 
-            # Redimensionar e exibir o vídeo
             frame_resized = cv2.resize(
                 frame, (display_width, display_height)
             )
-
             cv2.imshow("Camera", frame_resized)
 
-            # Encerrar a execução ao pressionar ESC
+            # ESC encerra o loop
             if cv2.waitKey(5) == 27:
                 break
 
     finally:
-        # Encerrar a câmera e fechar as janelas
+        # Libera a câmera e fecha as janelas mesmo em caso de erro
         webcam.release()
         cv2.destroyAllWindows()
 

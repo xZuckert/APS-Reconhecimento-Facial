@@ -3,13 +3,13 @@ import psycopg
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Carregar as variáveis do arquivo .env
+# Carrega as configurações do banco armazenadas no .env
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
-# Fazer conxao com banco de dados
 def conectar():
+    # Abre uma conexão com o PostgreSQL
     return psycopg.connect(
         host="127.0.0.1",
         port=5432,
