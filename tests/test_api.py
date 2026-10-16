@@ -97,41 +97,46 @@ class TestAPI(unittest.TestCase):
             "Não foi possível consultar os dados no momento."
         )
 
-    # Simular um estado de reconhecimento com usuário autenticado
-    # e verificar se o endpoint /status retorna essas informações.
-    @patch("src.api.obter_estado")
-    def test_status_retorna_estado(self, mock_estado):
-        mock_estado.return_value = {
-            "autenticado": True,
-            "usuario": "Usuario Teste",
-            "nivel_acesso": 1
-        }
+    # Simular um estado de reconhecimento com usuário autenticado e verificar se o endpoint /status retorna essas informações.
+    @patch("src.api.buscar_usuario_por_id")
+    @patch("src.api.obter_sessao")
+    def test_status_retorna_estado(self, mock_sessao, mock_usuario):
+        mock_sessao.return_value = {"id_usuario": 99}
+        mock_usuario.return_value = (
+            99,
+            "98765432100",
+            "Usuario Teste",
+            1,
+            b"\xff\xd8\xff" + b"\x00" * 10
+        )
 
-        resposta = self.client.get("/status")
+        resposta = self.client.get(
+            "/status",
+            headers={"Authorization": "Bearer token-teste"}
+        )
 
-        # Confirmar o sucesso da requisição e os dados retornados.
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual(resposta.json()["usuario"], "Usuario Teste")
-        mock_estado.assert_called_once()
+        self.assertEqual(resposta.json()["cpf"], "98765432100")
+        self.assertEqual(resposta.json()["tipo_imagem"], "image/jpeg")
 
-    # Verificar se o endpoint /status também funciona
-    # quando não existe um usuário autenticado.
-    @patch("src.api.obter_estado")
-    def test_status_sem_usuario_autenticado(self, mock_estado):
-        mock_estado.return_value = {
-            "autenticado": False,
-            "usuario": None,
-            "nivel_acesso": None
-        }
+    @patch("src.api.obter_sessao")
+    def test_status_sem_usuario_autenticado(self, mock_sessao):
+        mock_sessao.return_value = None
 
-        resposta = self.client.get("/status")
+        resposta = self.client.get(
+            "/status",
+            headers={"Authorization": "Bearer token-teste"}
+        )
 
-        # Confirmar que a resposta informa a ausência de autenticação.
-        self.assertEqual(resposta.status_code, 200)
-        self.assertFalse(resposta.json()["autenticado"])
+        self.assertEqual(resposta.status_code, 401)
+        self.assertEqual(
+            resposta.json()["detail"],
+            "Sessão inválida ou expirada. Autentique-se novamente."
+        )
 
-    # Simular um usuário autenticado pela câmera e verificar
-    # se uma nova sessão é criada com os dados corretos.
+
+    # Simular um usuário autenticado pela câmera e verificar se uma nova sessão é criada com os dados corretos.
     @patch("src.api.criar_sessao", return_value="token-teste")
     @patch("src.api.obter_estado")
     def test_iniciar_sessao_com_usuario_autenticado(
@@ -139,6 +144,7 @@ class TestAPI(unittest.TestCase):
     ):
         mock_estado.return_value = {
             "autenticado": True,
+            "id_usuario": 99,
             "usuario": "Usuario Teste",
             "nivel_acesso": 2
         }
@@ -154,6 +160,7 @@ class TestAPI(unittest.TestCase):
 
         # Confirmar que a sessão recebeu o usuário e seu nível de acesso.
         mock_criar_sessao.assert_called_once_with(
+            id_usuario=99,
             usuario="Usuario Teste",
             nivel_acesso=2
         )
@@ -177,7 +184,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resposta.status_code, 401)
         self.assertEqual(
             resposta.json()["detail"],
-            "Nenhum usuário autenticado pela câmera."
+            "Nenhum usuário reconhecido recentemente pela câmera."
         )
         mock_criar_sessao.assert_not_called()
 

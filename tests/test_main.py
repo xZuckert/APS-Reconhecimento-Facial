@@ -38,165 +38,118 @@ class TestAtualizarInterface(unittest.TestCase):
 
 class TestReconhecerRosto(unittest.TestCase):
 
-    # Preparar um estado inicial limpo para cada teste
-    # relacionado ao reconhecimento facial.
     def setUp(self):
         main.atualizar_interface()
         main.reconhecimento_em_andamento = True
 
-    # Criar uma tupla com os dados simulados de um usuário
-    # no formato esperado pela função de reconhecimento.
-    def usuario_teste(self, usuario_id=1, nome="Caique", nivel=2):
-        return (
-            usuario_id,
-            "12345678901",
-            nome,
-            nivel,
-            b"imagem_de_teste"
-        )
-
-    # Simular uma correspondência válida e verificar se
-    # os dados do usuário são exibidos e enviados ao estado.
-    @patch("src.main.atualizar_estado")
-    @patch("src.main.cv2.imwrite", return_value=True)
-    @patch("src.main.DeepFace.find")
-    @patch("src.main.listar_imagens_usuarios")
-    def test_usuario_reconhecido(
-        self, listar_usuarios, deepface, imwrite, atualizar_estado
+    def resultado_usuario(
+        self,
+        autenticado=True,
+        id_usuario=1,
+        usuario="Caique",
+        nivel_acesso=2,
+        distancia=0.30,
+        mensagem="Nenhuma correspondência encontrada"
     ):
-        # Simular a existência de um usuário cadastrado.
-        listar_usuarios.return_value = [self.usuario_teste()]
+        return {
+            "autenticado": autenticado,
+            "id_usuario": id_usuario,
+            "usuario": usuario,
+            "nivel_acesso": nivel_acesso,
+            "distancia": distancia,
+            "mensagem": mensagem
+        }
 
-        # Simular o resultado da comparação facial.
-        deepface.return_value = [
-            pd.DataFrame([
-                {"distance": 0.30, "identity": "/tmp/referencias/1.jpg"}
-            ])
-        ]
+    # Verificar se os dados do usuário reconhecido são atualizados.
+    @patch("src.main.atualizar_estado")
+    @patch("src.main.reconhecer_imagem")
+    def test_usuario_reconhecido(
+        self, reconhecer_imagem, atualizar_estado
+    ):
+        reconhecer_imagem.return_value = self.resultado_usuario()
 
-        # Executar o reconhecimento com um frame artificial.
         main.reconhecer_rosto(
             np.zeros((100, 100, 3), dtype=np.uint8)
         )
 
-        # Confirmar que os dados reconhecidos foram atualizados.
         self.assertEqual(main.nome_pessoa, "Caique")
         self.assertEqual(main.nivel_acesso, 2)
         self.assertEqual(main.score, 0.30)
 
-        # Confirmar os dados enviados para atualização do estado.
         atualizar_estado.assert_called_once_with(
             autenticado=True,
+            id_usuario=1,
             usuario="Caique",
             nivel_acesso=2,
             distancia=0.30
         )
+        reconhecer_imagem.assert_called_once()
+        self.assertFalse(main.reconhecimento_em_andamento)
 
-    # Simular uma busca sem resultados e verificar se
-    # a interface e o estado são limpos.
+    # Verificar se um resultado sem autenticação limpa a interface.
     @patch("src.main.atualizar_estado")
-    @patch("src.main.cv2.imwrite", return_value=True)
-    @patch("src.main.DeepFace.find")
-    @patch("src.main.listar_imagens_usuarios")
+    @patch("src.main.reconhecer_imagem")
     def test_nenhuma_correspondencia(
-        self, listar_usuarios, deepface, imwrite, atualizar_estado
+        self, reconhecer_imagem, atualizar_estado
     ):
-        listar_usuarios.return_value = [self.usuario_teste()]
-        deepface.return_value = [pd.DataFrame()]
+        reconhecer_imagem.return_value = self.resultado_usuario(
+            autenticado=False
+        )
 
         main.reconhecer_rosto(
             np.zeros((100, 100, 3), dtype=np.uint8)
         )
 
-        self.assertEqual(main.nome_pessoa, "")
-        atualizar_estado.assert_called_once_with()
-
-    # Simular uma falha ao salvar o frame e verificar
-    # se o reconhecimento trata o problema sem manter
-    # os dados anteriores na interface.
-    @patch("src.main.atualizar_estado")
-    @patch("src.main.cv2.imwrite", return_value=False)
-    @patch("src.main.listar_imagens_usuarios")
-    def test_falha_ao_salvar_frame(
-        self, listar_usuarios, imwrite, atualizar_estado
-    ):
-        listar_usuarios.return_value = [self.usuario_teste()]
-
-        main.reconhecer_rosto(
-            np.zeros((100, 100, 3), dtype=np.uint8)
-        )
-
-        self.assertEqual(main.nome_pessoa, "")
-        atualizar_estado.assert_called_once_with()
-
-        # Confirmar que a indicação de reconhecimento em andamento
-        # é liberada mesmo quando ocorre uma falha.
-        self.assertFalse(main.reconhecimento_em_andamento)
-
-    # Simular uma exceção durante o salvamento do frame
-    # e verificar se a função libera o estado de execução.
-    @patch("src.main.cv2.imwrite", side_effect=RuntimeError("erro"))
-    @patch("src.main.listar_imagens_usuarios")
-    def test_reconhecimento_libera_estado_ao_finalizar(
-        self, listar_usuarios, imwrite
-    ):
-        listar_usuarios.return_value = [self.usuario_teste()]
-
-        main.reconhecer_rosto(
-            np.zeros((100, 100, 3), dtype=np.uint8)
-        )
-
-        self.assertFalse(main.reconhecimento_em_andamento)
-
-    # Simular uma correspondência cuja identidade não pertence
-    # aos usuários cadastrados e verificar se ela é rejeitada.
-    @patch("src.main.atualizar_estado")
-    @patch("src.main.cv2.imwrite", return_value=True)
-    @patch("src.main.DeepFace.find")
-    @patch("src.main.listar_imagens_usuarios")
-    def test_usuario_reconhecido_mas_nao_cadastrado(
-        self, listar_usuarios, deepface, imwrite, atualizar_estado
-    ):
-        listar_usuarios.return_value = [self.usuario_teste(usuario_id=1)]
-
-        # A identidade retornada aponta para o ID 99,
-        # mas somente o usuário de ID 1 está cadastrado.
-        deepface.return_value = [
-            pd.DataFrame([
-                {"distance": 0.30, "identity": "/tmp/referencias/99.jpg"}
-            ])
-        ]
-
-        main.reconhecer_rosto(
-            np.zeros((100, 100, 3), dtype=np.uint8)
-        )
-
-        # Confirmar que nenhum usuário foi mantido na interface.
         self.assertEqual(main.nome_pessoa, "")
         self.assertEqual(main.score, 0)
         self.assertEqual(main.nivel_acesso, 0)
         atualizar_estado.assert_called_once_with()
+        self.assertFalse(main.reconhecimento_em_andamento)
 
-    # Simular uma distância acima do limite permitido
-    # e verificar se a pessoa não é autenticada.
+    # Verificar se uma exceção limpa a interface e o estado.
     @patch("src.main.atualizar_estado")
-    @patch("src.main.cv2.imwrite", return_value=True)
-    @patch("src.main.DeepFace.find")
-    @patch("src.main.listar_imagens_usuarios")
-    def test_distancia_acima_do_limite(
-        self, listar_usuarios, deepface, imwrite, atualizar_estado
+    @patch(
+        "src.main.reconhecer_imagem",
+        side_effect=RuntimeError("Erro ao processar imagem")
+    )
+    def test_falha_ao_processar_imagem(
+        self, reconhecer_imagem, atualizar_estado
     ):
-        listar_usuarios.return_value = [self.usuario_teste()]
+        main.reconhecer_rosto(
+            np.zeros((100, 100, 3), dtype=np.uint8)
+        )
 
-        # Retornar uma distância superior ao limite configurado.
-        deepface.return_value = [
-            pd.DataFrame([
-                {"distance": 0.80, "identity": "/tmp/referencias/1.jpg"}
-            ])
-        ]
+        self.assertEqual(main.nome_pessoa, "")
+        self.assertEqual(main.score, 0)
+        self.assertEqual(main.nivel_acesso, 0)
+        atualizar_estado.assert_called_once_with()
+        self.assertFalse(main.reconhecimento_em_andamento)
 
-        # Preencher a interface para verificar se os dados anteriores
-        # são removidos após a tentativa de reconhecimento.
+    # Verificar se o indicador é liberado quando ocorre uma exceção.
+    @patch(
+        "src.main.reconhecer_imagem",
+        side_effect=RuntimeError("Erro simulado")
+    )
+    def test_reconhecimento_libera_estado_ao_finalizar(
+        self, reconhecer_imagem
+    ):
+        main.reconhecer_rosto(
+            np.zeros((100, 100, 3), dtype=np.uint8)
+        )
+
+        self.assertFalse(main.reconhecimento_em_andamento)
+
+    # Verificar se uma identidade não autenticada não permanece na interface.
+    @patch("src.main.atualizar_estado")
+    @patch("src.main.reconhecer_imagem")
+    def test_usuario_nao_autenticado(
+        self, reconhecer_imagem, atualizar_estado
+    ):
+        reconhecer_imagem.return_value = self.resultado_usuario(
+            autenticado=False,
+            mensagem="Usuário não autenticado"
+        )
+
         main.atualizar_interface("Pessoa anterior", 0.20, 1)
 
         main.reconhecer_rosto(
@@ -208,13 +161,40 @@ class TestReconhecerRosto(unittest.TestCase):
         self.assertEqual(main.nivel_acesso, 0)
         atualizar_estado.assert_called_once_with()
 
-    # Verificar o comportamento quando não existem usuários
-    # com imagens cadastradas para realizar a comparação.
+    # Verificar se um resultado não autenticado com distância alta é rejeitado.
     @patch("src.main.atualizar_estado")
-    @patch("src.main.listar_imagens_usuarios", return_value=[])
-    def test_nenhum_usuario_com_imagem(
-        self, listar_usuarios, atualizar_estado
+    @patch("src.main.reconhecer_imagem")
+    def test_distancia_acima_do_limite(
+        self, reconhecer_imagem, atualizar_estado
     ):
+        reconhecer_imagem.return_value = self.resultado_usuario(
+            autenticado=False,
+            distancia=0.80
+        )
+
+        main.atualizar_interface("Pessoa anterior", 0.20, 1)
+
+        main.reconhecer_rosto(
+            np.zeros((100, 100, 3), dtype=np.uint8)
+        )
+
+        self.assertEqual(main.nome_pessoa, "")
+        self.assertEqual(main.score, 0)
+        self.assertEqual(main.nivel_acesso, 0)
+        atualizar_estado.assert_called_once_with()
+
+    # Verificar o comportamento quando o módulo de reconhecimento
+    # informa que não há usuário autenticado.
+    @patch("src.main.atualizar_estado")
+    @patch("src.main.reconhecer_imagem")
+    def test_nenhum_usuario_com_imagem(
+        self, reconhecer_imagem, atualizar_estado
+    ):
+        reconhecer_imagem.return_value = self.resultado_usuario(
+            autenticado=False,
+            mensagem="Nenhum usuário disponível para reconhecimento"
+        )
+
         main.reconhecer_rosto(
             np.zeros((100, 100, 3), dtype=np.uint8)
         )
