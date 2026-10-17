@@ -2,7 +2,6 @@ import sys
 import unittest
 from unittest.mock import patch, MagicMock
 import numpy as np
-import pandas as pd
 
 # Simular dependências que não devem iniciar durante os testes.
 sys.modules.setdefault("api", MagicMock())
@@ -17,8 +16,7 @@ from src import main
 
 class TestAtualizarInterface(unittest.TestCase):
 
-    # Verificar se os dados de uma pessoa reconhecida
-    # são armazenados corretamente nas variáveis da interface.
+    # Verificar se os dados de uma pessoa reconhecida são armazenados corretamente nas variáveis da interface.
     def test_atualizar_interface_com_dados(self):
         main.atualizar_interface("Caique", 0.25, 2)
 
@@ -26,8 +24,7 @@ class TestAtualizarInterface(unittest.TestCase):
         self.assertEqual(main.score, 0.25)
         self.assertEqual(main.nivel_acesso, 2)
 
-    # Verificar se a interface limpa as informações
-    # quando nenhum usuário é informado.
+    # Verificar se a interface limpa as informações quando nenhum usuário é informado.
     def test_atualizar_interface_limpa_dados(self):
         main.atualizar_interface()
 
@@ -183,8 +180,7 @@ class TestReconhecerRosto(unittest.TestCase):
         self.assertEqual(main.nivel_acesso, 0)
         atualizar_estado.assert_called_once_with()
 
-    # Verificar o comportamento quando o módulo de reconhecimento
-    # informa que não há usuário autenticado.
+    # Verificar o comportamento quando o módulo de reconhecimento informa que não há usuário autenticado.
     @patch("src.main.atualizar_estado")
     @patch("src.main.reconhecer_imagem")
     def test_nenhum_usuario_com_imagem(
@@ -206,8 +202,7 @@ class TestReconhecerRosto(unittest.TestCase):
 
 class TestDesenho(unittest.TestCase):
 
-    # Verificar se a função de retângulo arredondado
-    # desenha as partes retas e os quatro cantos.
+    # Verificar se a função de retângulo arredondado desenha as partes retas e os quatro cantos.
     @patch("src.main.cv2.rectangle")
     @patch("src.main.cv2.ellipse")
     def test_draw_rounded_retangle(self, ellipse, rectangle):
@@ -217,13 +212,11 @@ class TestDesenho(unittest.TestCase):
             imagem, (10, 10), (80, 80), (0, 255, 0)
         )
 
-        # Espera-se que sejam desenhados dois retângulos e
-        # quatro elipses para formar os cantos arredondados.
+        # Espera-se que sejam desenhados dois retângulos e quatro elipses para formar os cantos arredondados.
         self.assertEqual(rectangle.call_count, 2)
         self.assertEqual(ellipse.call_count, 4)
 
-    # Verificar se a função de exibição calcula os tamanhos
-    # e desenha as três linhas de informação na imagem.
+    # Verificar se a função de exibição calcula os tamanhos e desenha as três linhas de informação na imagem.
     @patch("src.main.cv2.putText")
     @patch("src.main.cv2.getTextSize", return_value=((100, 20), 5))
     @patch("src.main.cv2.ellipse")
@@ -242,8 +235,7 @@ class TestDesenho(unittest.TestCase):
 
 class TestIniciarAPI(unittest.TestCase):
 
-    # Simular uvicorn.run e verificar se a API é iniciada
-    # com o endereço, a porta e o nível de log esperados.
+    # Simular uvicorn.run e verificar se a API é iniciada com o endereço, a porta e o nível de log esperados.
     @patch("src.main.uvicorn.run")
     def test_iniciar_api(self, executar):
         main.iniciar_api()
@@ -258,8 +250,7 @@ class TestIniciarAPI(unittest.TestCase):
 
 class TestCamera(unittest.TestCase):
 
-    # Simular uma câmera indisponível e verificar se
-    # a função encerra a execução com código de erro.
+    # Simular uma câmera indisponível e verificar se a função encerra a execução com código de erro.
     @patch("src.main.cv2.VideoCapture")
     def test_camera_nao_abre(self, video_capture):
         video_capture.return_value.isOpened.return_value = False
@@ -269,21 +260,18 @@ class TestCamera(unittest.TestCase):
 
         self.assertEqual(erro.exception.code, 1)
 
-        # Como a câmera não abriu, ela não deve ser liberada
-        # pelo bloco de encerramento que só é iniciado depois da abertura.
+        # Como a câmera não abriu, ela não deve ser liberada pelo bloco de encerramento que só é iniciado depois da abertura.
         video_capture.return_value.release.assert_not_called()
 
 
 class TestLoopCamera(unittest.TestCase):
 
-    # Limpar os dados da interface antes de cada teste
-    # do loop principal da câmera.
+    # Limpar os dados da interface antes de cada teste do loop principal da câmera.
     def setUp(self):
         main.atualizar_interface()
         main.reconhecimento_em_andamento = False
 
-    # Simular a captura de um frame e verificar se os dados
-    # de um usuário reconhecido são desenhados no vídeo.
+    # Simular a captura de um frame e verificar se os dados de um usuário reconhecido são desenhados no vídeo.
     @patch("src.main.cv2.destroyAllWindows")
     @patch("src.main.cv2.waitKey", return_value=27)
     @patch("src.main.cv2.imshow")
@@ -324,8 +312,7 @@ class TestLoopCamera(unittest.TestCase):
         camera.release.assert_called_once()
         destroy_windows.assert_called_once()
 
-    # Simular uma falha na leitura do frame e verificar
-    # se o loop encerra e libera os recursos utilizados.
+    # Simular uma falha na leitura do frame e verificar se o loop encerra e libera os recursos utilizados.
     @patch("src.main.cv2.destroyAllWindows")
     @patch("src.main.cv2.waitKey", return_value=0)
     @patch("src.main.cv2.imshow")
@@ -351,14 +338,12 @@ class TestLoopCamera(unittest.TestCase):
 
         main.executar_loop_camera()
 
-        # Confirmar o encerramento dos recursos e que nenhum frame
-        # foi exibido depois da falha na captura.
+        # Confirmar o encerramento dos recursos e que nenhum frame foi exibido depois da falha na captura.
         camera.release.assert_called_once()
         destroy_windows.assert_called_once()
         imshow.assert_not_called()
 
-    # Simular uma falha ao iniciar a thread de reconhecimento
-    # e verificar se o indicador de execução é liberado.
+    # Simular uma falha ao iniciar a thread de reconhecimento e verificar se o indicador de execução é liberado.
     @patch("src.main.threading.Thread")
     @patch("src.main.cv2.destroyAllWindows")
     @patch("src.main.cv2.waitKey", return_value=27)
@@ -388,16 +373,14 @@ class TestLoopCamera(unittest.TestCase):
         # Simular uma exceção quando a thread tenta iniciar.
         thread.return_value.start.side_effect = RuntimeError("Erro simulado")
 
-        # Manter o loop ativo por 15 frames para chegar à tentativa
-        # de reconhecimento e encerrar na última chamada.
+        # Manter o loop ativo por 15 frames para chegar à tentativa de reconhecimento e encerrar na última chamada.
         wait_key.side_effect = [0] * 14 + [27]
 
         main.reconhecimento_em_andamento = False
 
         main.executar_loop_camera()
 
-        # Confirmar a tentativa de iniciar a thread e a recuperação
-        # do indicador após a falha.
+        # Confirmar a tentativa de iniciar a thread e a recuperação do indicador após a falha.
         thread.return_value.start.assert_called_once()
         self.assertFalse(main.reconhecimento_em_andamento)
 

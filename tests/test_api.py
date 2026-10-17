@@ -5,13 +5,11 @@ from src.api import app
 
 
 class TestAPI(unittest.TestCase):
-    # Criar um cliente de testes para realizar requisições à API
-    # sem precisar iniciar o servidor manualmente.
+    # Criar um cliente de testes para realizar requisições à API sem precisar iniciar o servidor manualmente.
     def setUp(self):
         self.client = TestClient(app)
 
-    # Verificar se a consulta de dados é recusada quando
-    # o usuário não informa um token de autenticação.
+    # Verificar se a consulta de dados é recusada quando o usuário não informa um token de autenticação.
     def test_dados_sem_token_retorna_401(self):
         resposta = self.client.get("/dados/1")
 
@@ -22,8 +20,7 @@ class TestAPI(unittest.TestCase):
             "Token de autenticação não informado."
         )
 
-    # Simular uma sessão inexistente para verificar se
-    # a API bloqueia o acesso com um token inválido.
+    # Simular uma sessão inexistente para verificar se a API bloqueia o acesso com um token inválido.
     @patch("src.api.obter_sessao", return_value=None)
     def test_sessao_invalida_retorna_401(self, mock_sessao):
         resposta = self.client.get(
@@ -36,8 +33,7 @@ class TestAPI(unittest.TestCase):
         self.assertIn("Sessão inválida", resposta.json()["detail"])
         mock_sessao.assert_called_once_with("token-invalido")
 
-    # Simular um usuário de nível 1 tentando acessar um recurso
-    # de nível superior, verificando se o acesso é negado.
+    # Simular um usuário de nível 1 tentando acessar um recurso de nível superior, verificando se o acesso é negado.
     @patch("src.api.consultar_dados")
     @patch("src.api.obter_sessao")
     def test_acesso_negado_retorna_403(
@@ -65,8 +61,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resposta.status_code, 403)
         self.assertEqual(resposta.json()["detail"], "Acesso negado.")
 
-    # Simular uma falha na consulta ao banco e verificar
-    # se a API retorna um erro de serviço indisponível.
+    # Simular uma falha na consulta ao banco e verificar se a API retorna um erro de serviço indisponível.
     @patch("src.api.consultar_dados")
     @patch("src.api.obter_sessao")
     def test_falha_banco_retorna_503(
@@ -165,8 +160,7 @@ class TestAPI(unittest.TestCase):
             nivel_acesso=2
         )
 
-    # Verificar se a API impede a criação de uma sessão
-    # quando não há usuário autenticado pela câmera.
+    # Verificar se a API impede a criação de uma sessão quando não há usuário autenticado pela câmera.
     @patch("src.api.criar_sessao")
     @patch("src.api.obter_estado")
     def test_iniciar_sessao_sem_usuario_retorna_401(
@@ -188,8 +182,7 @@ class TestAPI(unittest.TestCase):
         )
         mock_criar_sessao.assert_not_called()
 
-    # Verificar se uma sessão pode ser encerrada utilizando
-    # o token enviado no cabeçalho da requisição.
+    # Verificar se uma sessão pode ser encerrada utilizando o token enviado no cabeçalho da requisição.
     @patch("src.api.encerrar_sessao")
     def test_finalizar_sessao_com_token(self, mock_encerrar):
         resposta = self.client.delete(
@@ -206,8 +199,7 @@ class TestAPI(unittest.TestCase):
         )
         mock_encerrar.assert_called_once_with("token-teste")
 
-    # Simular uma consulta autorizada e verificar se os dados
-    # retornados pelo serviço são enviados corretamente pela API.
+    # Simular uma consulta autorizada e verificar se os dados retornados pelo serviço são enviados corretamente pela API.
     @patch("src.api.consultar_dados")
     @patch("src.api.obter_sessao")
     def test_consulta_autorizada_retorna_dados(
@@ -251,8 +243,7 @@ class TestAPI(unittest.TestCase):
             nivel_recurso=2
         )
 
-    # Simular um erro genérico na consulta e verificar
-    # se a API o transforma em uma resposta HTTP 400.
+    # Simular um erro genérico na consulta e verificar se a API o transforma em uma resposta HTTP 400.
     @patch("src.api.consultar_dados")
     @patch("src.api.obter_sessao")
     def test_erro_generico_retorna_400(

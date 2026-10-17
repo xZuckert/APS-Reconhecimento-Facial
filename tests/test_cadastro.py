@@ -4,8 +4,7 @@ from src.usuarios import cadastrar_usuario
 
 
 class TestCadastroUsuario(unittest.TestCase):
-    # Verificar se o cadastro rejeita um CPF com quantidade
-    # de caracteres diferente de 11, sem acessar o banco.
+    # Verificar se o cadastro rejeita um CPF com quantidade de caracteres diferente de 11, sem acessar o banco.
     @patch("src.usuarios.conectar")
     def test_cpf_invalido(self, mock_conectar):
         with self.assertRaisesRegex(ValueError, "11 dígitos"):
@@ -19,8 +18,7 @@ class TestCadastroUsuario(unittest.TestCase):
         # Confirmar que a validação ocorreu antes da conexão.
         mock_conectar.assert_not_called()
 
-    # Verificar se um nível de acesso fora dos valores permitidos
-    # provoca um erro antes de qualquer operação no banco.
+    # Verificar se um nível de acesso fora dos valores permitidos provoca um erro antes de qualquer operação no banco.
     @patch("src.usuarios.conectar")
     def test_nivel_acesso_invalido(self, mock_conectar):
         with self.assertRaisesRegex(ValueError, "nível de acesso"):
@@ -33,8 +31,7 @@ class TestCadastroUsuario(unittest.TestCase):
 
         mock_conectar.assert_not_called()
 
-    # Simular um cadastro válido e verificar se a função
-    # retorna o identificador gerado pelo banco de dados.
+    # Simular um cadastro válido e verificar se a função retorna o identificador gerado pelo banco de dados.
     @patch("src.usuarios.conectar")
     def test_cadastro_valido(self, mock_conectar):
         # Acessar os objetos simulados da conexão e do cursor.
@@ -56,8 +53,7 @@ class TestCadastroUsuario(unittest.TestCase):
         cursor.execute.assert_called_once()
         mock_conectar.assert_called_once()
 
-    # Simular uma violação de unicidade para verificar
-    # se o erro de CPF duplicado é propagado pela função.
+    # Simular uma violação de unicidade para verificar se o erro de CPF duplicado é propagado pela função.
     @patch("src.usuarios.conectar")
     def test_cpf_duplicado(self, mock_conectar):
         import psycopg

@@ -3,6 +3,7 @@ import logging
 import cv2
 import psycopg
 from fastapi.responses import FileResponse
+from pathlib import Path
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from camera_compartilhada import obter_frame_atual
 from estado import obter_estado
@@ -27,6 +28,21 @@ app = FastAPI(
     title="API de Reconhecimento Facial",
     version="1.1.0",
 )
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+@app.get("/", include_in_schema=False)
+def servir_frontend():
+    caminho = BASE_DIR / "index.html"
+
+    if not caminho.is_file():
+        raise HTTPException(
+            status_code=500,
+            detail="Frontend index.html não encontrado."
+        )
+
+    return FileResponse(caminho, media_type="text/html")
 
 # Permite receber tokens Bearer nas requisições protegidas
 seguranca = HTTPBearer(auto_error=False)
@@ -162,6 +178,15 @@ def tirar_foto_cadastro():
         "foto_id": foto_id,
         "url_imagem": f"/cadastro/foto/{foto_id}",
     }
+
+
+@app.get("/cadastro/foto/{foto_id}", include_in_schema=False)
+def consultar_foto_cadastro(foto_id: str):
+    """Entrega uma foto temporária apenas quando seu identificador existe."""
+    caminho = obter_caminho_foto(foto_id)
+    if caminho is None:
+        raise HTTPException(status_code=404, detail="Foto temporária não encontrada ou expirada.")
+    return FileResponse(caminho, media_type="image/jpeg", filename="captura.jpg")
 
 
 @app.post("/reconhecimento")

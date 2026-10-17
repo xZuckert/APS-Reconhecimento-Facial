@@ -11,8 +11,7 @@ PROJETO = Path(__file__).resolve().parent.parent
 
 class TestCamera(unittest.TestCase):
 
-    # Executar o módulo principal em um processo separado,
-    # permitindo simular a câmera e suas dependências.
+    # Executar o módulo principal em um processo separado, permitindo simular a câmera e suas dependências.
     def executar_main(self, codigo_camera):
         # Remover a indentação desnecessária do código de configuração.
         codigo_camera = textwrap.dedent(codigo_camera).strip()
@@ -74,8 +73,7 @@ class TestCamera(unittest.TestCase):
             timeout=15,
         )
 
-    # Verificar o comportamento do programa quando a câmera
-    # não consegue ser aberta.
+    # Verificar o comportamento do programa quando a câmera não consegue ser aberta.
     def test_camera_nao_abre(self):
         resultado = self.executar_main(
             "camera.isOpened.return_value = False"
@@ -95,8 +93,7 @@ class TestCamera(unittest.TestCase):
             ),
         )
 
-    # Verificar o comportamento quando a câmera abre,
-    # mas não consegue capturar um frame.
+    # Verificar o comportamento quando a câmera abre, mas não consegue capturar um frame.
     def test_falha_ao_capturar_video(self):
         resultado = self.executar_main(
             "camera.isOpened.return_value = True\n"

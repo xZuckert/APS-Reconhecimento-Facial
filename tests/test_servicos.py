@@ -5,41 +5,34 @@ from src.servicos import pode_acessar, consultar_dados
 
 class TestAutorizacao(unittest.TestCase):
 
-    # Verificar se um usuário de nível 1 acessa um recurso
-    # que também exige nível 1.
+    # Verificar se um usuário de nível 1 acessa um recurso que também exige nível 1.
     def test_nivel_1_acessa_recurso_nivel_1(self):
         self.assertTrue(pode_acessar(1, 1))
 
-    # Verificar se um usuário de nível 1 não acessa
-    # um recurso que exige nível 2.
+    # Verificar se um usuário de nível 1 não acessa um recurso que exige nível 2.
     def test_nivel_1_nao_acessa_recurso_nivel_2(self):
         self.assertFalse(pode_acessar(1, 2))
 
-    # Verificar se um usuário de nível 2 pode acessar
-    # um recurso de nível 1.
+    # Verificar se um usuário de nível 2 pode acessar um recurso de nível 1.
     def test_nivel_2_acessa_recurso_nivel_1(self):
         self.assertTrue(pode_acessar(2, 1))
 
-    # Verificar se um usuário de nível 2 acessa
-    # um recurso que exige nível 2.
+    # Verificar se um usuário de nível 2 acessa um recurso que exige nível 2.
     def test_nivel_2_acessa_recurso_nivel_2(self):
         self.assertTrue(pode_acessar(2, 2))
 
-    # Verificar se um usuário de nível 2 não acessa
-    # um recurso que exige nível 3.
+    # Verificar se um usuário de nível 2 não acessa um recurso que exige nível 3.
     def test_nivel_2_nao_acessa_recurso_nivel_3(self):
         self.assertFalse(pode_acessar(2, 3))
 
-    # Verificar se um usuário de nível 3 acessa recursos
-    # de todos os níveis definidos neste teste.
+    # Verificar se um usuário de nível 3 acessa recursos de todos os níveis definidos neste teste.
     def test_nivel_3_acessa_todos_os_niveis(self):
         for nivel_recurso in (1, 2, 3):
             # Identificar individualmente cada nível testado.
             with self.subTest(nivel_recurso=nivel_recurso):
                 self.assertTrue(pode_acessar(3, nivel_recurso))
 
-    # Verificar se uma consulta não autorizada é bloqueada
-    # antes de abrir uma conexão com o banco.
+    # Verificar se uma consulta não autorizada é bloqueada antes de abrir uma conexão com o banco.
     @patch("src.servicos.conectar")
     def test_acesso_negado_nao_consulta_banco(self, mock_conectar):
         resultado = consultar_dados(
@@ -54,8 +47,7 @@ class TestAutorizacao(unittest.TestCase):
         self.assertEqual(resultado["dados"], [])
         mock_conectar.assert_not_called()
 
-    # Verificar se um nível de recurso inválido é rejeitado
-    # sem executar consultas no banco de dados.
+    # Verificar se um nível de recurso inválido é rejeitado sem executar consultas no banco de dados.
     @patch("src.servicos.conectar")
     def test_nivel_recurso_invalido(self, mock_conectar):
         resultado = consultar_dados(
@@ -71,8 +63,7 @@ class TestAutorizacao(unittest.TestCase):
         )
         mock_conectar.assert_not_called()
 
-    # Simular uma consulta autorizada e verificar se
-    # os dados retornados pelo cursor são processados corretamente.
+    # Simular uma consulta autorizada e verificar se os dados retornados pelo cursor são processados corretamente.
     @patch("src.servicos.conectar")
     def test_acesso_autorizado_retorna_dados(self, mock_conectar):
         # Acessar o cursor simulado da conexão.
@@ -100,8 +91,7 @@ class TestAutorizacao(unittest.TestCase):
         self.assertEqual(len(resultado["dados"]), 2)
         mock_conectar.assert_called_once()
 
-    # Simular uma falha de conexão e verificar se o serviço
-    # retorna uma mensagem controlada, sem expor detalhes internos.
+    # Simular uma falha de conexão e verificar se o serviço retorna uma mensagem controlada, sem expor detalhes internos.
     @patch("src.servicos.conectar")
     def test_falha_no_banco_retorna_erro_controlado(self, mock_conectar):
         import psycopg

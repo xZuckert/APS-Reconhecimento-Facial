@@ -11,8 +11,7 @@ from src.usuarios import (
 
 class TestBuscarUsuarioPorImagem(TestCase):
 
-    # Simular um usuário ativo com o caminho de imagem procurado
-    # e verificar se a função retorna os dados esperados.
+    # Simular um usuário ativo com o caminho de imagem procurado e verificar se a função retorna os dados esperados.
     @patch("src.usuarios.conectar")
     def test_encontra_usuario_pelo_caminho_da_imagem(self, mock_conectar):
         usuario = (1, "12345678901", "Usuario Teste", 2, "/fotos/rosto.jpg")
@@ -29,8 +28,7 @@ class TestBuscarUsuarioPorImagem(TestCase):
         # Confirmar o retorno dos dados do usuário sem o caminho da imagem.
         self.assertEqual(resultado, (1, "12345678901", "Usuario Teste", 2))
 
-    # Verificar se a função retorna None quando nenhum usuário
-    # possui o caminho de imagem solicitado.
+    # Verificar se a função retorna None quando nenhum usuário possui o caminho de imagem solicitado.
     @patch("src.usuarios.conectar")
     def test_retorna_none_quando_imagem_nao_e_encontrada(self, mock_conectar):
         mock_cursor = MagicMock()
@@ -44,8 +42,7 @@ class TestBuscarUsuarioPorImagem(TestCase):
 
         self.assertIsNone(resultado)
 
-    # Verificar se a comparação entre caminhos ignora diferenças
-    # entre letras maiúsculas e minúsculas.
+    # Verificar se a comparação entre caminhos ignora diferenças entre letras maiúsculas e minúsculas.
     @patch("src.usuarios.conectar")
     def test_compara_caminhos_sem_diferenciar_maiusculas(self, mock_conectar):
         mock_cursor = MagicMock()
@@ -59,8 +56,7 @@ class TestBuscarUsuarioPorImagem(TestCase):
 
         self.assertEqual(resultado, (1, "12345678901", "Usuario Teste", 2))
 
-    # Verificar o comportamento quando não existem usuários
-    # ativos retornados pela consulta ao banco.
+    # Verificar o comportamento quando não existem usuários ativos retornados pela consulta ao banco.
     @patch("src.usuarios.conectar")
     def test_retorna_none_quando_nao_existem_usuarios_ativos(self, mock_conectar):
         mock_cursor = MagicMock()
@@ -74,8 +70,7 @@ class TestBuscarUsuarioPorImagem(TestCase):
 
 class TestUsuarios(TestCase):
 
-    # Simular um cadastro válido e verificar se a função
-    # retorna o identificador fornecido pelo banco.
+    # Simular um cadastro válido e verificar se a função retorna o identificador fornecido pelo banco.
     @patch("src.usuarios.conectar")
     def test_cadastrar_usuario(self, mock_conectar):
         mock_cursor = MagicMock()
@@ -103,8 +98,7 @@ class TestUsuarios(TestCase):
         with self.assertRaises(ValueError):
             cadastrar_usuario("12345678901", "Usuario Teste", 4, "/fotos/rosto.jpg")
 
-    # Simular a localização de um usuário pelo CPF e verificar
-    # se a função retorna todos os campos esperados.
+    # Simular a localização de um usuário pelo CPF e verificar se a função retorna todos os campos esperados.
     @patch("src.usuarios.conectar")
     def test_buscar_usuario_por_cpf(self, mock_conectar):
         usuario = (1, "12345678901", "Usuario Teste", 2, "/fotos/rosto.jpg", True)
@@ -118,8 +112,7 @@ class TestUsuarios(TestCase):
         self.assertEqual(resultado, usuario)
         mock_cursor.execute.assert_called_once()
 
-    # Verificar se a busca por CPF retorna None quando
-    # o banco não encontra nenhum usuário correspondente.
+    # Verificar se a busca por CPF retorna None quando o banco não encontra nenhum usuário correspondente.
     @patch("src.usuarios.conectar")
     def test_buscar_usuario_por_cpf_nao_encontrado(self, mock_conectar):
         mock_cursor = MagicMock()
@@ -130,8 +123,7 @@ class TestUsuarios(TestCase):
 
         self.assertIsNone(resultado)
 
-    # Verificar se a busca pelo nome funciona mesmo quando
-    # o texto informado contém espaços nas extremidades.
+    # Verificar se a busca pelo nome funciona mesmo quando o texto informado contém espaços nas extremidades.
     @patch("src.usuarios.conectar")
     def test_buscar_usuario_por_nome(self, mock_conectar):
         usuario = ("12345678901", "Usuario Teste", 2)
@@ -145,8 +137,7 @@ class TestUsuarios(TestCase):
         self.assertEqual(resultado, usuario)
         mock_cursor.execute.assert_called_once()
 
-    # Verificar se a busca por nome retorna None quando
-    # não existe um usuário com o nome informado.
+    # Verificar se a busca por nome retorna None quando não existe um usuário com o nome informado.
     @patch("src.usuarios.conectar")
     def test_buscar_usuario_por_nome_nao_encontrado(self, mock_conectar):
         mock_cursor = MagicMock()
