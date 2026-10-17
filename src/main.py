@@ -170,15 +170,8 @@ def iniciar_api():
         api.app,
         host="127.0.0.1",
         port=8000,
-        log_level="warning"
+        log_level="warning",
     )
-
-
-# Mantém a API funcionando em paralelo com a câmera
-threading.Thread(
-    target=iniciar_api,
-    daemon=True
-).start()
 
 
 def executar_loop_camera():
@@ -261,4 +254,4 @@ def executar_loop_camera():
 
 
 if __name__ == "__main__":
-    executar_loop_camera()
+    iniciar_api()

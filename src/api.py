@@ -1,17 +1,9 @@
 import base64
 import logging
+import time
+from pathlib import Path
 import cv2
 import psycopg
-from fastapi.responses import FileResponse
-from pathlib import Path
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from camera_compartilhada import obter_frame_atual
-from estado import obter_estado
-from fotos_temporarias import obter_caminho_foto, salvar_foto
-from reconhecimento import reconhecer_imagem
-from servicos import consultar_dados
-from sessoes import criar_sessao, obter_sessao, encerrar_sessao
-from usuarios import cadastrar_usuario, buscar_usuario_por_id
 from fastapi import (
     Depends,
     FastAPI,
@@ -20,14 +12,34 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from camera_compartilhada import (
+    obter_frame_atual,
+    iniciar_camera,
+    parar_camera,
+    camera_ativa,
+)
+from estado import obter_estado
+from fotos_temporarias import obter_caminho_foto, salvar_foto
+from reconhecimento import reconhecer_imagem
+from servicos import consultar_dados
+from sessoes import criar_sessao, obter_sessao, encerrar_sessao
+from usuarios import cadastrar_usuario, buscar_usuario_por_id
+
 
 logger = logging.getLogger(__name__)
 
-# Configura a API e suas informações básicas
 app = FastAPI(
     title="API de Reconhecimento Facial",
     version="1.1.0",
 )
+
+seguranca = HTTPBearer(auto_error=False)
+
+TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024
+TIPOS_IMAGEM_PERMITIDOS = {"image/jpeg", "image/png"}
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -39,22 +51,15 @@ def servir_frontend():
     if not caminho.is_file():
         raise HTTPException(
             status_code=500,
-            detail="Frontend index.html não encontrado."
+            detail="Frontend index.html não encontrado.",
         )
 
     return FileResponse(caminho, media_type="text/html")
-
-# Permite receber tokens Bearer nas requisições protegidas
-seguranca = HTTPBearer(auto_error=False)
-
-TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024
-TIPOS_IMAGEM_PERMITIDOS = {"image/jpeg", "image/png"}
 
 
 def obter_token(
     credenciais: HTTPAuthorizationCredentials | None = Depends(seguranca),
 ):
-    # Exige um token de autenticação na requisição
     if credenciais is None:
         raise HTTPException(
             status_code=401,
@@ -65,7 +70,6 @@ def obter_token(
 
 
 def obter_frame_webcam():
-    # Recupera o último frame disponibilizado pela câmera compartilhada
     frame = obter_frame_atual()
 
     if frame is None:
@@ -77,6 +81,77 @@ def obter_frame_webcam():
     return frame
 
 
+@app.post("/camera/iniciar")
+def iniciar_camera_api():
+    try:
+        iniciar_camera()
+    except RuntimeError as erro:
+        raise HTTPException(
+            status_code=503,
+            detail=str(erro),
+        ) from erro
+
+    return {
+        "sucesso": True,
+        "mensagem": "Câmera iniciada.",
+    }
+
+
+@app.post("/camera/parar")
+def parar_camera_api():
+    parar_camera()
+
+    return {
+        "sucesso": True,
+        "mensagem": "Câmera encerrada.",
+    }
+
+
+def gerar_stream_camera():
+    while camera_ativa():
+        frame = obter_frame_atual()
+
+        if frame is None:
+            time.sleep(0.05)
+            continue
+
+        sucesso, buffer = cv2.imencode(
+            ".jpg",
+            frame,
+            [cv2.IMWRITE_JPEG_QUALITY, 60]
+        )
+
+        if sucesso:
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n"
+                + buffer.tobytes()
+                + b"\r\n"
+            )
+
+        time.sleep(0.067)
+
+@app.get("/camera/stream")
+def stream_camera():
+    if not camera_ativa():
+        raise HTTPException(
+            status_code=409,
+            detail="A câmera não está iniciada.",
+        )
+
+    return StreamingResponse(
+        gerar_stream_camera(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+    )
+
+
+# --------------------------------------------------
+# CADASTRO DE USUÁRIOS
+# --------------------------------------------------
+
 @app.post("/usuarios", status_code=201)
 async def cadastrar_usuario_api(
     cpf: str = Form(...),
@@ -84,20 +159,19 @@ async def cadastrar_usuario_api(
     nivel_acesso: int = Form(...),
     imagem: UploadFile = File(...),
 ):
-    # Recebe os dados do formulário enviado à API
     cpf = cpf.strip()
     nome = nome.strip()
 
     try:
-        # Aceita somente imagens JPEG ou PNG
         if imagem.content_type not in TIPOS_IMAGEM_PERMITIDOS:
             raise HTTPException(
                 status_code=400,
                 detail="Envie uma imagem JPEG ou PNG.",
             )
 
-        # Lê no máximo 5 MB mais um byte para detectar arquivos grandes
-        conteudo_imagem = await imagem.read(TAMANHO_MAXIMO_IMAGEM + 1)
+        conteudo_imagem = await imagem.read(
+            TAMANHO_MAXIMO_IMAGEM + 1
+        )
 
         if not conteudo_imagem:
             raise HTTPException(
@@ -111,7 +185,6 @@ async def cadastrar_usuario_api(
                 detail="A imagem não pode ultrapassar 5 MB.",
             )
 
-        # Salva os dados do usuário e os bytes da imagem no banco
         id_usuario = cadastrar_usuario(
             cpf=cpf,
             nome=nome,
@@ -143,7 +216,6 @@ async def cadastrar_usuario_api(
         ) from erro
 
     finally:
-        # Fecha o arquivo recebido após o processamento
         await imagem.close()
 
     return {
@@ -158,7 +230,6 @@ async def cadastrar_usuario_api(
 
 @app.post("/cadastro/foto")
 def tirar_foto_cadastro():
-    # Captura o frame atual da webcam
     frame = obter_frame_webcam()
 
     sucesso, imagem_codificada = cv2.imencode(".jpg", frame)
@@ -169,7 +240,6 @@ def tirar_foto_cadastro():
             detail="Não foi possível codificar a foto.",
         )
 
-    # Armazena a foto temporariamente e gera uma URL para consultá-la
     foto_id = salvar_foto(imagem_codificada.tobytes())
 
     return {
@@ -182,18 +252,29 @@ def tirar_foto_cadastro():
 
 @app.get("/cadastro/foto/{foto_id}", include_in_schema=False)
 def consultar_foto_cadastro(foto_id: str):
-    """Entrega uma foto temporária apenas quando seu identificador existe."""
     caminho = obter_caminho_foto(foto_id)
-    if caminho is None:
-        raise HTTPException(status_code=404, detail="Foto temporária não encontrada ou expirada.")
-    return FileResponse(caminho, media_type="image/jpeg", filename="captura.jpg")
 
+    if caminho is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Foto temporária não encontrada ou expirada.",
+        )
+
+    return FileResponse(
+        caminho,
+        media_type="image/jpeg",
+        filename="captura.jpg",
+    )
+
+
+# --------------------------------------------------
+# RECONHECIMENTO FACIAL
+# --------------------------------------------------
 
 @app.post("/reconhecimento")
 def reconhecer_usuario_api():
     frame = obter_frame_webcam()
 
-    # Salva temporariamente a mesma imagem usada no reconhecimento
     sucesso, imagem_codificada = cv2.imencode(".jpg", frame)
 
     if not sucesso:
@@ -206,7 +287,6 @@ def reconhecer_usuario_api():
     url_imagem = f"/cadastro/foto/{foto_id}"
 
     try:
-        # Executa o reconhecimento facial no frame capturado
         resultado = reconhecer_imagem(frame)
 
     except Exception as erro:
@@ -216,7 +296,6 @@ def reconhecer_usuario_api():
             detail="Não foi possível realizar o reconhecimento.",
         ) from erro
 
-    # Retorna o resultado do reconhecimento e o endereço da foto
     return {
         "sucesso": True,
         "autenticado": resultado["autenticado"],
@@ -228,9 +307,12 @@ def reconhecer_usuario_api():
     }
 
 
+# --------------------------------------------------
+# SESSÃO E DADOS DO USUÁRIO
+# --------------------------------------------------
+
 @app.get("/status")
 def status_reconhecimento(token: str = Depends(obter_token)):
-    # Verifica se o token corresponde a uma sessão válida
     sessao = obter_sessao(token)
 
     if sessao is None:
@@ -239,7 +321,6 @@ def status_reconhecimento(token: str = Depends(obter_token)):
             detail="Sessão inválida ou expirada. Autentique-se novamente.",
         )
 
-    # Consulta os dados do usuário associado à sessão
     usuario = buscar_usuario_por_id(sessao["id_usuario"])
 
     if usuario is None:
@@ -258,7 +339,6 @@ def status_reconhecimento(token: str = Depends(obter_token)):
 
     imagem = bytes(imagem)
 
-    # Identifica o formato da imagem pelos seus bytes iniciais
     if imagem.startswith(b"\xff\xd8\xff"):
         tipo_imagem = "image/jpeg"
     elif imagem.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -269,7 +349,6 @@ def status_reconhecimento(token: str = Depends(obter_token)):
             detail="O formato da imagem cadastrada não é válido.",
         )
 
-    # Converte a imagem para Base64 para incluí-la na resposta JSON
     imagem_base64 = base64.b64encode(imagem).decode("utf-8")
 
     return {
@@ -284,7 +363,6 @@ def status_reconhecimento(token: str = Depends(obter_token)):
 
 @app.post("/sessao")
 def iniciar_sessao():
-    # Só permite criar uma sessão após um reconhecimento recente
     estado = obter_estado()
 
     if not estado["autenticado"] or estado["id_usuario"] is None:
@@ -293,7 +371,6 @@ def iniciar_sessao():
             detail="Nenhum usuário reconhecido recentemente pela câmera.",
         )
 
-    # Cria um token vinculado ao usuário reconhecido
     token = criar_sessao(
         id_usuario=estado["id_usuario"],
         usuario=estado["usuario"],
@@ -313,7 +390,6 @@ def iniciar_sessao():
 
 @app.delete("/sessao")
 def finalizar_sessao(token: str = Depends(obter_token)):
-    # Encerra a sessão associada ao token recebido
     encerrar_sessao(token)
 
     return {
@@ -327,7 +403,6 @@ def obter_dados_ambientais(
     nivel_recurso: int,
     token: str = Depends(obter_token),
 ):
-    # Verifica a sessão antes de consultar informações protegidas
     sessao = obter_sessao(token)
 
     if sessao is None:
@@ -336,7 +411,6 @@ def obter_dados_ambientais(
             detail="Sessão inválida ou expirada. Autentique-se novamente.",
         )
 
-    # A consulta verifica se o nível do usuário permite acessar o recurso
     resultado = consultar_dados(
         nome=sessao["usuario"],
         nivel_usuario=sessao["nivel_acesso"],
@@ -346,7 +420,6 @@ def obter_dados_ambientais(
     if not resultado["sucesso"]:
         mensagem = resultado["mensagem"]
 
-        # Traduz os erros do serviço para códigos HTTP
         status_por_mensagem = {
             "Acesso negado.": 403,
             "Não foi possível consultar os dados no momento.": 503,

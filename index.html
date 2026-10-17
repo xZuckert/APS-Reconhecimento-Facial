@@ -126,10 +126,59 @@ h1{font-weight:700}.btn{letter-spacing:.01em}
 <footer><div class="container footer"><a class="brand" href="#inicio"><span class="mark">❧</span>VerdeID</a><span>Projeto acadêmico APS · Identificação biométrica e proteção ambiental</span><span>Protótipo visual · Fotos: Unsplash/Pexels</span></div></footer>
 
 <div class="artOverlay" id="artOverlay" role="dialog" aria-modal="true" aria-label="Artigo completo"><div class="artModal"><button class="close" onclick="closeArticle()" aria-label="Fechar artigo">×</button><img id="artImg" alt="Imagem do artigo"><div class="artPad"><div class="articleMeta"><span class="tag" id="artCat"></span><span class="small" id="artMeta"></span></div><h2 id="artTitle"></h2><p class="small" id="artSummary"></p><div class="factBox" id="artFact"></div><div id="artBody"></div><div id="artVideoWrap"></div><div class="docBox"><b>Documentos oficiais</b><div id="artDocs"></div></div></div></div></div>
-<div class="overlay" id="loginOverlay"><div class="loginTop"><a class="brand"><span class="mark">❧</span>VerdeID <span class="small">/ Acesso seguro</span></a><button class="close" onclick="closeLogin()" aria-label="Fechar">×</button></div><div class="loginWrap"><div class="loginGrid"><div class="camera"><div><div class="face"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"><circle cx="24" cy="17" r="8"/><path d="M9 42c1.5-8 7.5-12 15-12s13.5 4 15 12"/></svg></div><b>Área de reconhecimento facial</b><p class="small">Mantenha o rosto visível para a câmera conectada ao sistema. A captura é processada pelo backend para tentar identificar um usuário cadastrado.</p><p class="small"><span class="dotlive"></span>Câmera do sistema</p></div></div><div class="form"><span class="kicker">Autenticação biométrica</span><h2>Entre com segurança</h2><p class="small">O sistema reconhecerá o rosto e consultará o nível de acesso registrado no banco. O nível não pode ser escolhido nesta tela.</p><label><input id="privacy" type="checkbox"> Li o aviso de privacidade e concordo com o processamento da imagem para autenticação.</label><p><button id="recognizeButton" class="btn primary" onclick="simulateLogin()">Reconhecer meu rosto →</button></p><p class="small" id="loginFeedback" role="status" aria-live="polite">Para continuar, aceite o aviso de privacidade e clique em reconhecer.</p></div></div></div></div>
+<div class="overlay" id="loginOverlay"><div class="loginTop"><a class="brand"><span class="mark">❧</span>VerdeID <span class="small">/ Acesso seguro</span></a><button class="close" onclick="closeLogin()">×</button></div><div class="loginWrap"><div class="loginGrid">
+    <div class="camera">
+        <div id="cameraPlaceholder">
+            <div class="face">
+                <svg viewBox="0 0 48 48"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2">
+                    <circle cx="24" cy="17" r="8"/>
+                    <path d="M9 42c1.5-8 7.5-12 15-12s13.5 4 15 12"/>
+                </svg>
+            </div>
 
+            <b>Área de reconhecimento facial</b>
+            <p class="small" id="cameraStatus">
+                A câmera será ativada ao abrir esta tela.
+            </p>
+        </div>
+
+        <img
+            id="cameraPreview"
+            alt="Imagem ao vivo da câmera"
+            style="display:none;width:100%;max-height:420px;object-fit:cover;border-radius:16px;"
+        >
+
+        <p id="cameraError" class="small" style="display:none;"></p>
+    </div>
+    <div class="form">
+        <span class="kicker">Autenticação biométrica</span>
+        <h2>Entre com segurança</h2>
+        <p class="small">
+            Posicione seu rosto diante da câmera para validar sua identidade
+            e acessar a biblioteca correspondente às suas permissões.
+        </p>
+        <label>
+            <input id="privacy" type="checkbox">
+            Li e aceito o aviso de privacidade da demonstração.
+        </label>
+        <p>
+            <button
+                class="btn primary"
+                id="btnReconhecimento"
+                onclick="entrarComReconhecimento()"
+            >
+                Reconhecer rosto e acessar →
+            </button>
+        </p>
+        <p class="small" id="loginStatus" role="status" aria-live="polite">
+            A câmera será utilizada para verificar um usuário cadastrado.
+        </p>
+    </div>
+</div></div></div>
 <div class="welcomeScreen" id="welcomeScreen"><div class="welcomeInner"><div class="welcomeLeaf">❧</div><h2 id="welcomeText">Bem-vindo(a), Ana Silva</h2><p id="welcomeSub">Seu perfil foi identificado.</p><div class="welcomeLevel" id="welcomeLevel">NÍVEL 2 · DIRETOR(A) DE DIVISÃO</div><p class="welcomeHint">Preparando seu espaço de trabalho…</p></div></div>
-
 <div class="portal" id="portal"><header class="portalHeader"><div class="container portalNav"><a class="brand" href="#"><span class="mark">❧</span>VerdeID</a><span class="small">Biblioteca ambiental personalizada</span><div class="userChip"><div class="avatar" id="avatar">A</div><div><b id="portalName">Ana Silva</b><div class="small" id="portalLevel">Nível 2</div></div><button class="btn secondary" onclick="logout()">Sair</button></div></div></header><section class="portalHero"><div class="container"><span class="kicker" id="portalKicker">SEU ESPAÇO AMBIENTAL</span><h1 id="portalTitle">Conhecimento que transforma.</h1><p id="portalIntro">Artigos, orientações e informações selecionadas conforme seu nível de acesso.</p></div></section><main class="portalContent"><div class="container"><div class="articleHead"><div><span class="kicker">LEITURA RECOMENDADA</span><h2>Artigos para você</h2><p class="small" id="articleDescription">Conteúdo selecionado de acordo com suas permissões.</p></div><input id="busca" placeholder="Buscar na biblioteca…" oninput="filtrarBiblio(this.value)" aria-label="Buscar na biblioteca"><span class="tag" id="articleCount">3 ARTIGOS</span></div><div class="articleGrid" id="articleGrid"></div><div class="portalNotice" id="portalNotice">Conteúdo demonstrativo. As informações e permissões reais serão conectadas ao sistema oficial.</div></div></main><footer><div class="container footer"><a class="brand"><span class="mark">❧</span>VerdeID</a><span>Informação ambiental organizada por nível de acesso.</span><span>Protótipo acadêmico</span></div></footer></div>
 <script>
 const levels={
@@ -146,14 +195,159 @@ const levels={
 {category:'INTELIGÊNCIA DE DADOS',nivel:3,img:'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=800&auto=format&fit=crop',imgAlt:'Horizonte estratégico em montanhas',id:'inteligencia',fact:'Correlação não é causa: dois gráficos juntos não provam que um provoca o outro.',title:'O painel do ministro: lendo o país sem se perder nos números',summary:'Tendências, regiões e alertas: como interpretar consolidados sem confundir correlação com causa.',detail:'Painéis consolidados mostram período, cobertura, fonte e critérios de agregação — agregando por região e ocultando a propriedade identificada. Comparar regiões exige cuidado com diferenças de coleta e contexto; correlação não implica causa. O olhar estratégico separa o ruído do sinal: onde o dano cresce, onde a fiscalização aperta, onde a política precisa mudar. Programas como PPCDAm e o Fundo Amazônia operam sobre esses consolidados.<p><strong>Alertas por região — exemplo didático [SIMULAÇÃO]:</strong></p><div class="bars"><div class="barRow"><span>Região A</span><span>alto</span></div><div class="bar"><i style="width:88%"></i></div><div class="barRow"><span>Região B</span><span>médio</span></div><div class="bar"><i style="width:52%"></i></div><div class="barRow"><span>Região C</span><span>baixo</span></div><div class="bar"><i style="width:24%"></i></div></div>'},
 {category:'GOVERNANÇA',nivel:3,img:'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=800&auto=format&fit=crop',imgAlt:'Cadeado digital em circuito',id:'governanca',fact:'Auditoria não é desconfiança — é o mecanismo que prova que o sistema funciona.',title:'Cofre digital: quem pode ver o quê — e quem viu',summary:'Acesso mínimo necessário, auditoria total: a governança que protege sem travar o trabalho.',detail:'Governança define responsáveis, regras de acesso, retenção e resposta a incidentes — com proteção reforçada para dados biométricos e informações estratégicas. Autorização no servidor, acessos relevantes registrados, permissões revisadas periodicamente. Nesta demonstração, cada acesso seu fica registrado na trilha de auditoria (simulação). Fiscalização com apoio de TCU/CGU e transparência ativa.<ul class="check"><li>Responsável definido para cada dado</li><li>Acesso mínimo necessário por perfil</li><li>Todo acesso relevante registrado</li><li>Permissões revisadas periodicamente</li></ul>'}]}
 };
-let currentName='',currentLevel='1',welcomeTimer,currentToken=null,dadosApiAutorizados=[];
-async function requisicaoApi(url, options={}){const resposta=await fetch(url,options);let corpo={};try{corpo=await resposta.json()}catch(_erro){}if(!resposta.ok){const mensagem=corpo.detail||corpo.mensagem||('Falha na API (HTTP '+resposta.status+').');throw new Error(mensagem)}return corpo}
-function feedbackLogin(mensagem,erro=false){const el=document.getElementById('loginFeedback');if(el){el.textContent=mensagem;el.style.color=erro?'#a32d2d':'var(--muted)'}}
-function openLogin(){document.getElementById('loginOverlay').classList.add('show');document.body.style.overflow='hidden'}
-function closeLogin(){document.getElementById('loginOverlay').classList.remove('show');document.body.style.overflow=''}
-async function simulateLogin(){if(!document.getElementById('privacy').checked){feedbackLogin('Leia e marque o aviso de privacidade antes de continuar.',true);return}const botao=document.getElementById('recognizeButton');botao.disabled=true;botao.style.opacity='.7';feedbackLogin('Solicitando reconhecimento à câmera…');let tokenCriado=null;try{const reconhecimento=await requisicaoApi('/reconhecimento',{method:'POST'});if(!reconhecimento.autenticado){throw new Error(reconhecimento.mensagem||'Não foi possível identificar o usuário.')}feedbackLogin('Rosto reconhecido. Validando a sessão…');const sessao=await requisicaoApi('/sessao',{method:'POST'});tokenCriado=sessao.token;const cabecalhos={Authorization:'Bearer '+tokenCriado};const perfil=await requisicaoApi('/status',{headers:cabecalhos});const dados=await requisicaoApi('/dados/'+perfil.nivel_acesso,{headers:cabecalhos});currentToken=tokenCriado;currentName=perfil.usuario;currentLevel=String(perfil.nivel_acesso);dadosApiAutorizados=Array.isArray(dados.dados)?dados.dados:[];closeLogin();showWelcomeThenPortal()}catch(erro){if(tokenCriado){fetch('/sessao',{method:'DELETE',headers:{Authorization:'Bearer '+tokenCriado}}).catch(()=>{})}feedbackLogin(erro.message||'Não foi possível autenticar. Verifique a câmera e tente novamente.',true)}finally{botao.disabled=false;botao.style.opacity='1'}}
+let currentName = '';
+let currentLevel = '1';
+let welcomeTimer;
+let tokenSessao = null;
+
+async function iniciarVisualizacaoCamera() {
+    const imagem = document.getElementById("cameraPreview");
+    const placeholder = document.getElementById("cameraPlaceholder");
+    const status = document.getElementById("cameraStatus");
+    const erro = document.getElementById("cameraError");
+
+    erro.style.display = "none";
+    status.textContent = "Iniciando câmera...";
+
+    try {
+        const resposta = await fetch("/camera/iniciar", {
+            method: "POST"
+        });
+
+        if (!resposta.ok) {
+            const dados = await resposta.json().catch(() => ({}));
+            throw new Error(
+                dados.detail || "Não foi possível iniciar a câmera."
+            );
+        }
+
+        // Exibe a área antes de começar a receber o fluxo.
+        imagem.style.display = "block";
+        placeholder.style.display = "none";
+        status.textContent = "Câmera iniciada.";
+
+        imagem.onerror = () => {
+            imagem.style.display = "none";
+            placeholder.style.display = "block";
+            status.textContent = "Falha ao carregar a imagem da câmera.";
+            erro.textContent = "Verifique o endpoint /camera/stream.";
+            erro.style.display = "block";
+        };
+
+        imagem.src = "/camera/stream?t=" + Date.now();
+
+    } catch (e) {
+        status.textContent = "Não foi possível iniciar a câmera.";
+        erro.textContent = e.message;
+        erro.style.display = "block";
+        console.error("Erro ao iniciar câmera:", e);
+    }
+}
+
+async function encerrarVisualizacaoCamera() {
+    const imagem = document.getElementById("cameraPreview");
+    const placeholder = document.getElementById("cameraPlaceholder");
+
+    imagem.removeAttribute("src");
+    imagem.style.display = "none";
+    placeholder.style.display = "block";
+
+    try {
+        await fetch("/camera/parar", { method: "POST" });
+    } catch (e) {
+        console.error("Erro ao encerrar câmera:", e);
+    }
+}
+
+function openLogin() {
+    document.getElementById("loginOverlay").classList.add("show");
+    document.body.style.overflow = "hidden";
+    iniciarVisualizacaoCamera();
+}
+
+function closeLogin() {
+    document.getElementById("loginOverlay").classList.remove("show");
+    document.body.style.overflow = "";
+    encerrarVisualizacaoCamera();
+}
+
+async function entrarComReconhecimento() {
+    const botao = document.getElementById('btnReconhecimento');
+    const status = document.getElementById('loginStatus');
+    const privacidade = document.getElementById('privacy');
+
+    if (!privacidade.checked) {
+        status.textContent =
+            'Leia e aceite o aviso de privacidade para continuar.';
+        return;
+    }
+
+    botao.disabled = true;
+    status.textContent = 'Analisando o rosto...';
+
+    try {
+        // 1. Reconhece o rosto capturado pela webcam.
+        const respostaReconhecimento = await fetch('/reconhecimento', {
+            method: 'POST'
+        });
+
+        const reconhecimento = await respostaReconhecimento.json();
+
+        if (!respostaReconhecimento.ok) {
+            throw new Error(
+                reconhecimento.detail || 'Falha no reconhecimento facial.'
+            );
+        }
+
+        if (!reconhecimento.autenticado) {
+            status.textContent =
+                reconhecimento.mensagem || 'Rosto não reconhecido. Acesso negado.';
+            return;
+        }
+
+        status.textContent = 'Identidade confirmada. Criando sessão...';
+
+        // 2. Cria uma sessão para o usuário reconhecido.
+        const respostaSessao = await fetch('/sessao', {
+            method: 'POST'
+        });
+
+        const sessao = await respostaSessao.json();
+
+        if (!respostaSessao.ok) {
+            throw new Error(
+                sessao.detail || 'Não foi possível iniciar a sessão.'
+            );
+        }
+
+        if (!sessao.token || !sessao.usuario) {
+            throw new Error('A API não retornou os dados da sessão.');
+        }
+
+        const nivel = String(sessao.nivel_acesso);
+
+        if (!['1', '2', '3'].includes(nivel)) {
+            throw new Error('O nível de acesso retornado é inválido.');
+        }
+
+        // 3. Usa a identidade e as permissões retornadas pelo servidor.
+        tokenSessao = sessao.token;
+        currentName = sessao.usuario;
+        currentLevel = nivel;
+
+        closeLogin();
+        showWelcomeThenPortal();
+
+    } catch (erro) {
+        console.error('Erro no login facial:', erro);
+        status.textContent = erro.message ||
+            'Não foi possível realizar o login. Tente novamente.';
+    } finally {
+        botao.disabled = false;
+    }
+}
+
 function showWelcomeThenPortal(){const w=document.getElementById('welcomeScreen'),data=levels[currentLevel];document.getElementById('welcomeText').textContent='Bem-vindo(a), '+currentName;document.getElementById('welcomeSub').textContent='Seu perfil foi identificado.';document.getElementById('welcomeLevel').textContent=data.label;w.style.display='flex';requestAnimationFrame(()=>w.classList.add('show'));clearTimeout(welcomeTimer);welcomeTimer=setTimeout(()=>{w.classList.remove('show');setTimeout(()=>{w.style.display='none';showPortal()},650)},2600)}
-function renderDadosApi(){const grid=document.getElementById('articleGrid');if(!grid)return;const anterior=document.getElementById('dadosApiSection');if(anterior)anterior.remove();const sec=document.createElement('div');sec.id='dadosApiSection';sec.className='pSec';const cab=document.createElement('div');cab.className='pSecHead';const kicker=document.createElement('span');kicker.className='kicker';kicker.textContent='Dados autorizados pelo servidor';const titulo=document.createElement('h2');titulo.textContent='Informações ambientais da API';const descricao=document.createElement('p');descricao.className='small';descricao.textContent='Conteúdo retornado pelo backend após validar sua sessão e seu nível de acesso.';cab.append(kicker,titulo,descricao);sec.append(cab);const lista=document.createElement('div');lista.className='docList';if(!dadosApiAutorizados.length){const vazio=document.createElement('p');vazio.className='small';vazio.textContent='Nenhum registro disponível para este nível no momento.';lista.append(vazio)}else{dadosApiAutorizados.forEach(item=>{const linha=document.createElement('div');linha.className='apiDataItem';linha.style.padding='12px 4px';linha.style.borderBottom='1px solid var(--line)';linha.textContent=String(item);lista.append(linha)})}sec.append(lista);grid.parentElement.insertBefore(sec,grid);const aviso=document.getElementById('portalNotice');if(aviso)aviso.textContent='Sessão autenticada pelo backend. Os registros acima vieram da API protegida; artigos, mapas e gráficos restantes são conteúdos demonstrativos do protótipo.'}
 function showPortal(){const d=levels[currentLevel];document.getElementById('landing').style.display='none';document.querySelector('body > header').style.display='none';document.querySelector('body > footer').style.display='none';document.getElementById('portal').classList.add('show');document.getElementById('portalName').textContent=currentName;document.getElementById('avatar').textContent=currentName.charAt(0).toUpperCase();document.getElementById('portalLevel').textContent=d.label;document.getElementById('portalKicker').textContent=d.label;document.getElementById('portal').classList.toggle('tier3',currentLevel==='3');document.getElementById('portalTitle').textContent='Bem-vindo(a), '+currentName;document.getElementById('portalIntro').textContent=d.intro+' '+d.frase;document.getElementById('articleDescription').textContent=d.desc;document.getElementById('portalNotice').textContent=d.notice;const lista=currentLevel==='1'?levels['1'].articles:currentLevel==='2'?[...levels['1'].articles,...levels['2'].articles]:[...levels['1'].articles,...levels['2'].articles,...levels['3'].articles];const banner=currentLevel==='3'?'<div class="stratBanner"><b><span style="color:var(--gold)">●</span> Área estratégica liberada</b><span>Trilha de auditoria ativa (simulação) · acesso total aos 3 níveis.</span></div>':'';let videoCard='';['1','2','3'].forEach(n=>{if(+n<=+currentLevel){const dd=levels[n];videoCard+='<div class="levelGroupHead"><span class="levelLabel">'+levels[n].label+' · Vídeo</span></div><article class="article videoCard"><div class="articleBody"><div class="articleMeta"><span class="tag">Vídeo · Nível '+n+'</span></div><h3>'+dd.videoTitulo+'</h3><p>'+dd.videoDesc+'</p><video controls preload="none" src="'+dd.video+'"></video></div></article>'}});document.getElementById('articleCount').textContent=lista.length+' ARTIGOS';const card=(a,i)=>`<article class="article${a.nivel===3?' strategic':''}" data-t="${(a.title+' '+a.summary+' '+a.category).toLowerCase()}"><div class="articleArt"><img src="${a.img}" alt="${a.imgAlt}" loading="lazy" onerror="this.style.display='none'"></div><div class="articleBody"><div class="articleMeta"><span class="tag">${a.category}</span><span class="small">Nível ${a.nivel} · Leitura ${4+i*2} min</span></div><h3>${a.title}</h3><p>${a.summary}</p><button class="readMore" onclick="openArticle('${a.id}')">Ler artigo completo</button><div class="articleDetail">${a.detail}</div></div></article>`;const grupos=[...new Set(lista.map(a=>a.nivel))].sort((x,y)=>x-y);const subNiv={1:'Base pública e educativa',2:'Restrito à sua divisão',3:'Estratégico ministerial'};document.getElementById('articleGrid').innerHTML=(banner+videoCard)+grupos.map(n=>`<div class="levelGroupHead"><span class="levelLabel">${levels[String(n)].label}</span><span class="small">${subNiv[n]}</span></div>`+lista.filter(a=>a.nivel===n).map(card).join('')).join('');
 const SOLS={1:[{t:'Denúncia que funciona',d:'Transforme o que você viu em um registro que a fiscalização consegue usar.',s:['Anote data, hora e local com ponto de referência','Fotografe sem se expor a risco','Registre na Linha Verde 0800 61 8080','Guarde o protocolo e acompanhe']},{t:'Casa sem desperdício',d:'Menos consumo na torneira, mais água no rio.',s:['Conserte vazamentos primeiro','Descarga regulada e banho curto','Reúse a água da máquina na limpeza','Capte chuva para rega']},{t:'Descarte sem erro',d:'Cada resíduo no destino certo, inclusive os do campo.',s:['Separe pelas cores da CONAMA 275','Perigosos em pontos próprios','Embalagens do campo de volta ao comércio','Nunca queime nem enterre']}],2:[{t:'Fiscalização de campo',d:'Do planejamento ao auto com prova válida.',s:['Planeje rota, equipe e EPI','Registre foto, coordenada e testemunhas','Colete amostras com formalidade','Encaminhe com laudo anexado']},{t:'CAR em dia na divisão',d:'Nenhuma propriedade fora do mapa.',s:['Confira o SICAR da divisão','Valide APP e Reserva Legal','Notifique pendências com prazo','Acompanhe o PRA']},{t:'Relatório que decide',d:'Número sem contexto não convence ninguém.',s:['Indicador com meta e responsável','Séries comparáveis e validadas','Limites do estudo declarados','Recomendação objetiva no fim']}],3:[{t:'Resposta a incidente',d:'Quando o dano acontece, a hora é conter e comunicar.',s:['Classifique a severidade','Isole a área e acione responsáveis','Comunique com transparência','Registre lições aprendidas']},{t:'Política baseada em evidência',d:'Da denúncia ao Diário Oficial sem atalho.',s:['Dados verificáveis na mesa','Participação social ouvida','Norma clara e executável','Fiscalização capaz de cumprir']},{t:'Auditoria permanente',d:'Confiança se constrói com verificação contínua.',s:['Trilha de auditoria completa','Revisão periódica de acessos','Transparência ativa','Correção contínua de rumo']}]};
 const GLOS={1:[['APP','Área de Preservação Permanente: margens de rios, nascentes e encostas protegidas por lei.'],['Reserva Legal','Percentual do imóvel com vegetação nativa: 80%, 35% ou 20% conforme o bioma.'],['CONAMA 275','Cores oficiais da coleta: azul papel, vermelho plástico, verde vidro, amarelo metal, marrom orgânicos, cinza rejeitos.']],2:[['CAR','Cadastro Ambiental Rural: registro eletrônico obrigatório do imóvel rural no SICAR.'],['EIA/RIMA','Estudo e Relatório de Impacto Ambiental no licenciamento de impacto significativo.'],['PRODES/DETER','Programas do INPE que detectam desmatamento por satélite e orientam a fiscalização.']],3:[['SNUC','Lei 9.985/2000: organiza as unidades de conservação do país.'],['PSA','Lei 14.119/2021: quem conserva água, carbono e biodiversidade pode ser remunerado.'],['Lei 7.802/1989','Regula agrotóxicos no Brasil, com registro tripartite MAPA/ANVISA/IBAMA.']]};
@@ -175,12 +369,39 @@ const lockedN=[1,2,3].filter(n=>+n>+currentLevel);const lockedHtml=lockedN.lengt
 +'<div class="pSec"><div class="pSecHead"><span class="kicker">Painel gráfico</span><h2>Leitura rápida da situação</h2><p class="small">Visualizações do seu ambiente. Números ilustrativos de demonstração.</p></div><div class="chartGrid">'+chartsHtml+'</div></div><div class="timeCard"><div class="pSecHead" style="margin-bottom:4px"><span class="kicker" style="color:#a8c9ae">Linha de apuração</span><h2>Da denúncia à norma em 4 etapas</h2><p class="small" style="color:#bcd4c1">O caminho completo de um caso, do campo ao gabinete.</p></div><div class="timeGrid">'+TIME.map((t,i)=>'<div class="tRich"><div class="tNum">'+(i+1)+'</div><div><b>'+t[1]+'</b><p>'+t[4]+'</p><div class="tMeta"><span>Responsável: '+t[2]+'</span><span>Entrega: '+t[3]+'</span></div></div></div>').join('')+'</div></div>'
 +'<div class="pSec"><div class="pSecHead"><span class="kicker">Central de documentos</span><h2>Base oficial e modelos</h2><p class="small">Leis e portais de referência do seu nível.</p></div><div class="docList">'+['1','2','3'].filter(n=>+n<=+currentLevel).map(n=>'<div class="small" style="margin:10px 0 2px"><strong>'+levels[n].label+'</strong></div>'+DOCS[n].map(x=>'<a href="'+x.u+'" target="_blank" rel="noopener"><span>↗ '+x.t+'</span><span>→</span></a>').join('')).join('')+'</div></div>'
 +'<div class="pSec"><div class="pSecHead"><span class="kicker">Glossário do fiscal</span><h2>Fale como profissional</h2><p class="small">Os termos que aparecem nos artigos e relatórios.</p></div><div class="glosGrid">'+glosHtml+'</div></div><div class="pSec"><div class="pSecHead"><span class="kicker">Mapa de ocorrências</span><h2>Pontos afetados sob monitoramento</h2><p class="small">Locais ilustrativos de demonstração [SIMULAÇÃO]. Toque nos pontos pulsantes.</p></div><div id="mapa"></div><p class="small">Arraste para explorar · Ctrl + scroll para zoom.</p><div class="legend" style="display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-top:8px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#287653;margin-right:5px"></i>Nível 1</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dfb766;margin-right:5px"></i>Nível 2</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#0e2a1e;margin-right:5px"></i>Nível 3</span></div></div>';
-document.getElementById('articleGrid').insertAdjacentHTML('beforeend',extra);document.getElementById('articleGrid').insertAdjacentHTML('afterbegin',dashHtml);initMapa();renderDadosApi();
+document.getElementById('articleGrid').insertAdjacentHTML('beforeend',extra);document.getElementById('articleGrid').insertAdjacentHTML('afterbegin',dashHtml);initMapa();
 function initMapa(){const el=document.getElementById('mapa');if(!el||el.dataset.ok)return;el.dataset.ok='1';const PTS={1:[{la:-9.87,lo:-56.08,t:'Alta Floresta · MT',d:'Monitoramento de lavouras e nascentes. Ponto ilustrativo [SIMULAÇÃO].'},{la:-2.99,lo:-47.35,t:'Paragominas · PA',d:'Área de atenção educativa. Ponto ilustrativo [SIMULAÇÃO].'}],2:[{la:-12.09,lo:-45.80,t:'Luís Eduardo Magalhães · BA',d:'Divisão apura insumos e coleta amostras. Ponto ilustrativo [SIMULAÇÃO].'},{la:-2.44,lo:-54.70,t:'Santarém · PA',d:'Registros e relatórios da divisão. Ponto ilustrativo [SIMULAÇÃO].'}],3:[{la:-8.76,lo:-63.90,t:'Porto Velho · RO',d:'Caso estratégico sob norma ministerial. Ponto ilustrativo [SIMULAÇÃO].'},{la:-6.64,lo:-51.99,t:'São Félix do Xingu · PA',d:'Auditoria e resposta ativas. Ponto ilustrativo [SIMULAÇÃO].'}]};let pts=[];['1','2','3'].forEach(n=>{if(+n<=+currentLevel)PTS[n].forEach(p=>pts.push({n:n,la:p.la,lo:p.lo,t:p.t,d:p.d}))});if(!window.L){el.innerHTML='<div class="docList">'+pts.map(p=>'<div style="padding:10px 4px;border-bottom:1px solid var(--line);font-size:.9rem"><b>Nível '+p.n+' · '+p.t+'</b><br><span class="small">'+p.d+'</span></div>').join('')+'</div>';return}const map=L.map('mapa',{scrollWheelZoom:false}).setView([-10.5,-52.5],4);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:12,attribution:'© OpenStreetMap · pontos [SIMULAÇÃO]'}).addTo(map);pts.forEach(p=>{const ic=L.divIcon({className:'',html:'<span class="mk mk'+p.n+'"></span>',iconSize:[18,18]});L.marker([p.la,p.lo],{icon:ic}).addTo(map).bindPopup('<b>'+p.t+'</b><br><span>Nível '+p.n+' — '+p.d+'</span>')});setTimeout(()=>map.invalidateSize(),300)}
 window.filtrarBiblio=function(q){q=(q||'').toLowerCase();document.querySelectorAll('#articleGrid .article[data-t]').forEach(c=>{c.style.display=(!q||c.getAttribute('data-t').indexOf(q)>-1)?'':'none'});document.querySelectorAll('#articleGrid .levelGroupHead').forEach(h=>{let n=h.nextElementSibling,show=false;while(n&&!n.classList.contains('levelGroupHead')&&!n.classList.contains('pSec')){if(n.classList.contains('article')&&n.style.display!=='none'){show=true;break}n=n.nextElementSibling}h.style.display=(!q||show)?'':'none'});document.querySelectorAll('#articleGrid .videoCard,#articleGrid .stratBanner').forEach(e=>{e.style.display=q?'none':''})};
 window.scrollTo(0,0)}
 function toggleArticle(btn){const card=btn.closest('.article');card.classList.toggle('expanded');btn.textContent=card.classList.contains('expanded')?'Fechar artigo':'Ler artigo'}
-async function logout(){const token=currentToken;currentToken=null;dadosApiAutorizados=[];if(token){try{await fetch('/sessao',{method:'DELETE',headers:{Authorization:'Bearer '+token}})}catch(_erro){}}document.getElementById('portal').classList.remove('show');document.getElementById('landing').style.display='block';document.querySelector('body > header').style.display='block';document.querySelector('body > footer').style.display='block';document.getElementById('privacy').checked=false;feedbackLogin('Sessão encerrada. Para entrar novamente, use o reconhecimento facial.');window.scrollTo(0,0)}
+
+async function logout() {
+    if (tokenSessao) {
+        try {
+            await fetch('/sessao', {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${tokenSessao}`
+                }
+            });
+        } catch (erro) {
+            console.error('Erro ao encerrar a sessão:', erro);
+        }
+    }
+
+    tokenSessao = null;
+
+    document.getElementById('portal').classList.remove('show');
+    document.getElementById('landing').style.display = 'block';
+    document.querySelector('body > header').style.display = 'block';
+    document.querySelector('body > footer').style.display = 'block';
+
+    document.getElementById('privacy').checked = false;
+
+    closeLogin();
+    window.scrollTo(0, 0);
+}
+
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeLogin()});
 document.getElementById('loginOverlay').addEventListener('click',e=>{if(e.target.id==='loginOverlay')closeLogin()});
 const DOCS={1:[{t:'Lei 9.605/1998 — Crimes Ambientais',u:'https://www.planalto.gov.br/ccivil_03/leis/l9605.htm'},{t:'IBAMA — denúncias e fiscalização',u:'https://www.gov.br/ibama/pt-br'}],2:[{t:'Lei 12.651/2012 — Código Florestal',u:'https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2012/lei/l12651.htm'},{t:'Lei 7.802/1989 — Agrotóxicos',u:'https://www.planalto.gov.br/ccivil_03/leis/l7802.htm'}],3:[{t:'Lei 9.985/2000 — SNUC',u:'https://www.planalto.gov.br/ccivil_03/leis/l9985.htm'},{t:'Lei 14.119/2021 — Pagamento por Serviços Ambientais',u:'https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14119.htm'}]};
